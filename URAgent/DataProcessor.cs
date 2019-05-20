@@ -1246,12 +1246,12 @@ namespace URCommunication
                     }
                     lock (zeroForceLocker)
                     {
-                        zeroForceBias[0] = -URMath.GaussAverage(fx);
-                        zeroForceBias[1] = -URMath.GaussAverage(fy);
-                        zeroForceBias[2] = -URMath.GaussAverage(fz);
-                        zeroForceBias[3] = -URMath.GaussAverage(tx);
-                        zeroForceBias[4] = -URMath.GaussAverage(ty);
-                        zeroForceBias[5] = -URMath.GaussAverage(tz);
+                        zeroForceBias[0] = -URMath.GaussAverage(fx, 4);
+                        zeroForceBias[1] = -URMath.GaussAverage(fy, 4);
+                        zeroForceBias[2] = -URMath.GaussAverage(fz, 4);
+                        zeroForceBias[3] = -URMath.GaussAverage(tx, 5);
+                        zeroForceBias[4] = -URMath.GaussAverage(ty, 5);
+                        zeroForceBias[5] = -URMath.GaussAverage(tz, 5);
                     }
                     OnSendZeroedForceCompeleted();
                 }));
@@ -1782,12 +1782,12 @@ namespace URCommunication
                         ty[i] = getForces[i][4];
                         tz[i] = getForces[i][5];
                     }
-                    forceRecord[0, k + 1] = URMath.GaussAverage(fx);
-                    forceRecord[1, k + 1] = URMath.GaussAverage(fy);
-                    forceRecord[2, k + 1] = URMath.GaussAverage(fz);
-                    forceRecord[3, k + 1] = URMath.GaussAverage(tx);
-                    forceRecord[4, k + 1] = URMath.GaussAverage(ty);
-                    forceRecord[5, k + 1] = URMath.GaussAverage(tz);
+                    forceRecord[0, k + 1] = URMath.GaussAverage(fx, 4);
+                    forceRecord[1, k + 1] = URMath.GaussAverage(fy, 4);
+                    forceRecord[2, k + 1] = URMath.GaussAverage(fz, 4);
+                    forceRecord[3, k + 1] = URMath.GaussAverage(tx, 5);
+                    forceRecord[4, k + 1] = URMath.GaussAverage(ty, 5);
+                    forceRecord[5, k + 1] = URMath.GaussAverage(tz, 5);
 
                     int process = 1 + (int)((double)(k + 1) / (double)HalfTestNum * 48.0);
                     OnSendPreciseCalibrationProcess((short)process);
@@ -1852,12 +1852,12 @@ namespace URCommunication
                         ty[i] = getForces[i][4];
                         tz[i] = getForces[i][5];
                     }
-                    forceRecord[0, k + HalfTestNum + 1] = URMath.GaussAverage(fx);
-                    forceRecord[1, k + HalfTestNum + 1] = URMath.GaussAverage(fy);
-                    forceRecord[2, k + HalfTestNum + 1] = URMath.GaussAverage(fz);
-                    forceRecord[3, k + HalfTestNum + 1] = URMath.GaussAverage(tx);
-                    forceRecord[4, k + HalfTestNum + 1] = URMath.GaussAverage(ty);
-                    forceRecord[5, k + HalfTestNum + 1] = URMath.GaussAverage(tz);
+                    forceRecord[0, k + HalfTestNum + 1] = URMath.GaussAverage(fx, 4);
+                    forceRecord[1, k + HalfTestNum + 1] = URMath.GaussAverage(fy, 4);
+                    forceRecord[2, k + HalfTestNum + 1] = URMath.GaussAverage(fz, 4);
+                    forceRecord[3, k + HalfTestNum + 1] = URMath.GaussAverage(tx, 5);
+                    forceRecord[4, k + HalfTestNum + 1] = URMath.GaussAverage(ty, 5);
+                    forceRecord[5, k + HalfTestNum + 1] = URMath.GaussAverage(tz, 5);
 
                     int process = 51 + (int)((double)(k + 1) / (double)HalfTestNum * 48.0);
                     OnSendPreciseCalibrationProcess((short)process);
@@ -1960,12 +1960,12 @@ namespace URCommunication
                             ty[i] = getForces[i][4];
                             tz[i] = getForces[i][5];
                         }
-                        forceRecord[0, k] = URMath.GaussAverage(fx);
-                        forceRecord[1, k] = URMath.GaussAverage(fy);
-                        forceRecord[2, k] = URMath.GaussAverage(fz);
-                        forceRecord[3, k] = URMath.GaussAverage(tx);
-                        forceRecord[4, k] = URMath.GaussAverage(ty);
-                        forceRecord[5, k] = URMath.GaussAverage(tz);
+                        forceRecord[0, k] = URMath.GaussAverage(fx, 4);
+                        forceRecord[1, k] = URMath.GaussAverage(fy, 4);
+                        forceRecord[2, k] = URMath.GaussAverage(fz, 4);
+                        forceRecord[3, k] = URMath.GaussAverage(tx, 5);
+                        forceRecord[4, k] = URMath.GaussAverage(ty, 5);
+                        forceRecord[5, k] = URMath.GaussAverage(tz, 5);
 
                         int process = 1 + (int)(accumStep / (maxPitchAngle - minPitchAngle) * 98.0);
                         OnSendPreciseCalibrationProcess((short)process);
@@ -2110,12 +2110,12 @@ namespace URCommunication
             }
 
             return new double[]{
-                URMath.GaussAverage(fx), 
-                URMath.GaussAverage(fy), 
-                URMath.GaussAverage(fz),
-                URMath.GaussAverage(tx),
-                URMath.GaussAverage(ty),
-                URMath.GaussAverage(tz)
+                URMath.GaussAverage(fx, 4), 
+                URMath.GaussAverage(fy, 4), 
+                URMath.GaussAverage(fz, 4),
+                URMath.GaussAverage(tx, 5),
+                URMath.GaussAverage(ty, 5),
+                URMath.GaussAverage(tz, 5)
             };
         }
         #endregion

@@ -440,6 +440,12 @@ namespace MathFunction
             u *= dataRange;
             Y *= totalNum;
 
+            if (Double.IsNaN(S) || Double.IsInfinity(S) ||
+                Double.IsNaN(u) || Double.IsInfinity(u) ||
+                Double.IsNaN(Y) || Double.IsInfinity(Y))
+            {
+                return null;
+            }
             return new double[] { u, S, Y };
         }
 
@@ -447,10 +453,18 @@ namespace MathFunction
         /// 获得输入数据的高斯均值，即假设输入参数满足高斯分布时的期望值
         /// 如果输入数据的统计分布不足则线性插值
         /// </summary>
-        /// <param name="Datas">输入数据</param>
+        /// <param name="InputDatas">输入数据</param>
+        /// <param name="DecimalNum">输入数据保留位数</param>
         /// <returns>返回高斯均值</returns>
-        public static double GaussAverage(double[] Datas)
+        public static double GaussAverage(double[] InputDatas, int DecimalNum)
         {
+            double[] Datas = new double[InputDatas.Length];
+            double decimalNum = Math.Pow(10, (double)DecimalNum);
+            for (int i = 0; i < Datas.Length; ++i)
+            {
+                Datas[i] = Math.Round(InputDatas[i] * decimalNum) / decimalNum;
+            }
+
             Dictionary<double, byte> statisticalNum = GetDistributionFromSampleDatas(Datas);
             if (statisticalNum.Count < 2)
             {
@@ -467,7 +481,17 @@ namespace MathFunction
             }
             else
             {
-                return GaussDistributionFit(GetDistributionFromSampleDatas(Datas))[0];
+                double[] gaussValue = GaussDistributionFit(statisticalNum);
+                if (Object.Equals(gaussValue, null))
+                {
+                    double average = 0;
+                    foreach (double item in Datas)
+                    {
+                        average += item;
+                    }
+                    return average / (double)Datas.Length;
+                }
+                return gaussValue[0];
             }
         }
 
@@ -481,7 +505,7 @@ namespace MathFunction
         {
             int nodeDim = InterpolatedX.Length; // 节点个数
             double sampleInterval = InterpolatedX[1] - InterpolatedX[0]; // 采样间隔
-            
+
             double[] deltaY = new double[nodeDim - 1]; // Y坐标一阶差值
             for (int k = 0; k < nodeDim - 1; k++)
             {
@@ -503,7 +527,7 @@ namespace MathFunction
                 fibonacciParameters[k] = -4 * fibonacciParameters[k - 1] - fibonacciParameters[k - 2];
             }
 
-            double[] requiredOutSpace = new double[2] {0.0, 0.0}; // 计算中间值的必要输出空间
+            double[] requiredOutSpace = new double[2] { 0.0, 0.0 }; // 计算中间值的必要输出空间
             for (int k = 0; k < nodeDim - 3; k++)
             {
                 requiredOutSpace[0] += (outSpace[k] * fibonacciParameters[k]);

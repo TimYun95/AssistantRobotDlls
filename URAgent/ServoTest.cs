@@ -396,14 +396,19 @@ namespace URServo
                 // 每个周期都要采集保持力，最后一个周期求平均
                 case 0: // 第一个周期 传参端口设置
                     adjustBias = adjustBiasIni;
+                    tempBias = adjustBiasIni;
                     vCordinates.Clear();
                     dCordinates.Clear();
                     angleCordinates.Clear();
                     anglePredict.Clear();
+                    anglePredictAfterFiltering.Clear();
+                    anglePredictAfterAccum.Clear();
                     lastIndex = 0;
                     judgeBegin = false;
-                    theraMaxTillNow = 0.0;
+                    nullCross = false;
+                    thetaMaxTillNow = 0.0;
                     meanAngleChange = 0.0;
+                    accmuErr = 0.0;
 
                     if (ifPort30004Used)
                     {
@@ -515,28 +520,41 @@ namespace URServo
         }
 
 
-        protected const double adjustBiasIni = 0.1444;
+        protected const double adjustBiasIni = 0.0;//0.1444;
         protected double adjustBias = adjustBiasIni;
-        protected const double judgeDistance = 0.004;
-        protected const double tuneDistance = 0.004;
-        protected const double dAngleToDFriction = 0.02;
+        protected double tempBias = adjustBiasIni;
+        protected const double nullDistance = 0.001;
+        protected const double judgeDistance = 0.003;
+        protected const double tuneDistance = 0.003;
+        protected const double dAngleToDFriction = 0.015;
         protected const double dFrictionToDAngle = 20.0;
-        protected const double maxRdForce = 2.0;
+        protected const double maxRdForce = 1.0;
+        protected const double halfCarefulAngleLow = 0.05;
+        protected const double halfCarefulAngleUp = 0.09;
 
         protected bool judgeBegin = false;
+        protected bool nullCross = false;
         protected List<double> vCordinates = new List<double>(15000);
         protected List<double> dCordinates = new List<double>(15000);
         //protected List<double> frictionFCordinates = new List<double>(15000);
         //protected List<double> normFCordinates = new List<double>(15000);
         protected List<double> angleCordinates = new List<double>(15000);
         protected List<double> anglePredict = new List<double>(15000);
+        protected List<double> anglePredictAfterFiltering = new List<double>(15000);
+        protected List<double> anglePredictAfterAccum = new List<double>(15000);
         protected int lastIndex = 0;
         protected int limitIndex = 0;
-        protected double theraMaxTillNow = 0.0;
+        protected double thetaMaxTillNow = 0.0;
         protected double meanAngleChange = 0.0; // 只是总和
         protected int anglePredictListIndex = 0;
         protected int angleRealListIndex = 0;
-        protected const double trustCoeff = 0.2;
+        protected const double trustCoeff = 0.5;
+
+        protected double accmuErr = 0.0;
+        protected const double alpha = 0.4;
+        protected const double maxAngleDiff = 3.0;
+
+        //protected double lastDeltaForce = 0.0;
 
         /// <summary>
         /// 伺服运动模块中计算下一周期的Tcp位置
@@ -585,6 +603,33 @@ namespace URServo
             {
                 nextTcpPosition[k] += detectingDirectionAtBase[k] * forceDirectionIncrement;
             }
+
+            //double differenceForce = URMath.VectorDotMultiply(referenceForce, servoMotionDetectingDirectionArrayAtTcp) - servoMotionPreservedForceForChange;
+            //if (Math.Abs(differenceForce) <= servoMotionDetectingMinAvailableForce)
+            //{
+            //    differenceForce = Math.Sign(differenceForce) * servoMotionDetectingMinAvailableForce;
+            //}
+            //else if (Math.Abs(differenceForce) >= servoMotionDetectingMaxAvailableForce)
+            //{
+            //    differenceForce = Math.Sign(differenceForce) * servoMotionDetectingMaxAvailableForce;
+            //}
+
+            //double forceDirectionIncrement = Math.Sign(differenceForce) * ((Math.Abs(differenceForce) - servoMotionDetectingMinAvailableForce) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) + servoMotionDetectingPeriodicalMinIncrement);
+            //forceDirectionIncrement += (differenceForce - lastDeltaForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) / 2.0;
+            //lastDeltaForce = differenceForce;
+
+            //if (Math.Abs(forceDirectionIncrement) <= servoMotionDetectingPeriodicalMinIncrement)
+            //{
+            //    forceDirectionIncrement = Math.Sign(forceDirectionIncrement) * servoMotionDetectingPeriodicalMinIncrement;
+            //}
+            //else if (Math.Abs(forceDirectionIncrement) >= servoMotionDetectingPeriodicalMaxIncrement)
+            //{
+            //    forceDirectionIncrement = Math.Sign(forceDirectionIncrement) * servoMotionDetectingPeriodicalMaxIncrement;
+            //}
+            //for (int k = 0; k < 3; k++)
+            //{
+            //    nextTcpPosition[k] += detectingDirectionAtBase[k] * forceDirectionIncrement;
+            //}
 
             // 当前运动坐标系中的坐标获取
             double[] arrayP = new double[] { tcpRealPosition[0] - servoMotionBeginTcpPosition[0], tcpRealPosition[1] - servoMotionBeginTcpPosition[1], tcpRealPosition[2] - servoMotionBeginTcpPosition[2] };
@@ -642,20 +687,26 @@ namespace URServo
             //}
 
             // 矫正摩擦力控制 离散式
-            double tempBias = adjustBiasIni;
+            double deltaForce = 0.0;
+            double judgeThisRound = 0.0;
+            double theta = 0.0;
+            if (!nullCross && URMath.LengthOfArray(distanceJudgeArray) > nullDistance)
+            {
+                nullCross = true;
+                lastIndex = currentIndex;
+            }
             if (!judgeBegin && URMath.LengthOfArray(distanceJudgeArray) > judgeDistance)
             {
                 judgeBegin = true;
-                lastIndex = (int)Math.Round((currentIndex + lastIndex) / 2.0);
             }
-
             if (judgeBegin)
             {
                 if (URMath.LengthOfArray(distanceJudgeArray) > tuneDistance)
                 {
-                    double theta = GetPredictAngleAfterLimitation(lastIndex, currentIndex);
+                    theta = GetPredictAngleAfterLimitation(lastIndex, currentIndex);
 
-                    tempBias = TuneFrictionTranslation(anglePredict.Count - 1, anglePredict.Count - 1, lastIndex, currentIndex);
+                    deltaForce = TuneFrictionTranslation(anglePredictAfterAccum.Count - 1, anglePredictAfterAccum.Count - 1, lastIndex, currentIndex);
+                    judgeThisRound = 1.0;
 
                     lastIndex = (int)Math.Round((currentIndex + lastIndex) / 2.0);
                 }
@@ -666,9 +717,12 @@ namespace URServo
             double currentNormForce = -URMath.VectorDotMultiply(referenceForce, servoMotionDetectingDirectionArrayAtTcp);
 
             // 摩擦力控制摆动
-            double refFraction = -0.3511 * Math.Sin(0.9 * currentNormForce) + 0.5108 * currentNormForce + adjustBias;
+            //double refFraction = -0.3511 * Math.Sin(0.9 * currentNormForce) + 0.5108 * currentNormForce + adjustBias;
+            double factor = 1.0 / (1.0 + Math.Exp(-8.0 * currentNormForce + 20.0));
+            double refFraction = (1 - factor) * (0.07632 * currentNormForce + 0.02814) + factor * (0.1404 * currentNormForce + 0.02702) + adjustBias;
+            //double refFraction = (1 - factor) * (0.07632 * currentNormForce + 0.02814) + factor * (0.1404 * currentNormForce + 0.02702) + adjustBiasIni;
             double diffFraction = refFraction - currentFraction;
-            double deltaAngle = diffFraction * dAngleToDFriction; 
+            double deltaAngle = diffFraction * dAngleToDFriction;
 
             // 摆动速度限幅
             if (Math.Abs(deltaAngle) > servoMotionVibratingPeriodicalMaxIncrement)
@@ -689,6 +743,28 @@ namespace URServo
             nextTcpPosition[4] = nextPosture[1];
             nextTcpPosition[5] = nextPosture[2];
 
+
+            //// 记录数据
+            //servoMotionRecordDatas.Add(new double[] { tcpRealPosition[0], 
+            //                                                                        tcpRealPosition[1], 
+            //                                                                        tcpRealPosition[2], 
+            //                                                                        tcpRealPosition[3], 
+            //                                                                        tcpRealPosition[4], 
+            //                                                                        tcpRealPosition[5], 
+            //                                                                        referenceForce[0], 
+            //                                                                        referenceForce[1], 
+            //                                                                        referenceForce[2], 
+            //                                                                        referenceForce[3], 
+            //                                                                        referenceForce[4], 
+            //                                                                        referenceForce[5], 
+            //                                                                        coordinateV, 
+            //                                                                        coordinateD, 
+            //                                                                        currentAngle / Math.PI * 180.0,
+            //                                                                        refFraction,
+            //                                                                        diffFraction, 
+            //                                                                        deltaAngle });
+
+
             if (anglePredict.Count < 1)
             {
                 // 记录数据
@@ -707,11 +783,15 @@ namespace URServo
                                                                                     coordinateV, 
                                                                                     coordinateD, 
                                                                                     currentAngle / Math.PI * 180.0,
+                                                                                    judgeThisRound,
                                                                                     predictAngle,
+                                                                                    deltaForce,
                                                                                     adjustBias, 
                                                                                     tempBias,
-                                                                                    (int)Math.Round((lastIndex + currentIndex) / 2.0), 
-                                                                                    0.0 });
+                                                                                    lastIndex, 
+                                                                                    0.0,
+                                                                                    differenceForce, 
+                                                                                    forceDirectionIncrement});
             }
             else
             {
@@ -731,11 +811,15 @@ namespace URServo
                                                                                     coordinateV, 
                                                                                     coordinateD, 
                                                                                     currentAngle / Math.PI * 180.0,
+                                                                                    judgeThisRound,
                                                                                     predictAngle,
+                                                                                    deltaForce,
                                                                                     adjustBias, 
                                                                                     tempBias,
-                                                                                    (int)Math.Round((lastIndex + currentIndex) / 2.0), 
-                                                                                    anglePredict[anglePredict.Count - 1] });
+                                                                                    lastIndex, 
+                                                                                    theta,
+                                                                                    differenceForce, 
+                                                                                    forceDirectionIncrement });
             }
 
             return nextTcpPosition;
@@ -787,7 +871,7 @@ namespace URServo
                 {
                     if (anglePredict.Count > 100)
                     {
-                        if (Math.Abs(rawAngle - anglePredict[anglePredict.Count - 1]) > 10.0 * Math.Abs(meanAngleChange / anglePredict.Count - 1))
+                        if (Math.Abs(rawAngle - anglePredict[anglePredict.Count - 1]) > 10.0 * Math.Abs(meanAngleChange / (anglePredict.Count - 1)))
                         {
                             predictAngle = anglePredict[anglePredict.Count - 1];
                         }
@@ -798,10 +882,45 @@ namespace URServo
                 meanAngleChange += (predictAngle - anglePredict[anglePredict.Count - 1]);
             }
 
-            theraMaxTillNow = Math.Max(predictAngle, theraMaxTillNow);
+            thetaMaxTillNow = Math.Max(predictAngle, thetaMaxTillNow);
             anglePredict.Add(predictAngle);
 
-            return predictAngle;
+            // 角度滤波
+            if (anglePredictAfterFiltering.Count < 1)
+            {
+                anglePredictAfterFiltering.Add(predictAngle);
+
+                anglePredictAfterAccum.Add(predictAngle);
+
+                return predictAngle;
+            }
+            else
+            {
+                int endIndex = anglePredict.Count - 1;
+                double limitation = tuneDistance / 2.0 / 0.001 * maxAngleDiff;
+                if (anglePredict[endIndex] - anglePredict[endIndex - 1] > limitation)
+                {
+                    predictAngle = alpha * (anglePredict[endIndex - 1] + limitation) + (1 - alpha) * anglePredictAfterFiltering[endIndex - 1];
+                }
+                else if (anglePredict[endIndex] - anglePredict[endIndex - 1] < -limitation)
+                {
+                    predictAngle = alpha * (anglePredict[endIndex - 1] - limitation) + (1 - alpha) * anglePredictAfterFiltering[endIndex - 1];
+                }
+                else
+                {
+                    predictAngle = alpha * anglePredict[endIndex - 1] + (1 - alpha) * anglePredictAfterFiltering[endIndex - 1];
+                }
+
+                anglePredictAfterFiltering.Add(predictAngle);
+
+                double tempErr = accmuErr * endIndex;
+                tempErr += (anglePredict[endIndex - 1] - predictAngle);
+                accmuErr = tempErr / (endIndex + 1);
+
+                anglePredictAfterAccum.Add(predictAngle + accmuErr);
+
+                return predictAngle + accmuErr;
+            }
         }
 
         /// <summary>
@@ -818,17 +937,18 @@ namespace URServo
         /// <summary>
         /// 调整摩擦力参数
         /// </summary>
-        /// <param name="fakeL">预测角序列上限</param>
-        /// <param name="fakeU">预测角序列下限</param>
-        /// <param name="realL">实测角序列上限</param>
+        /// <param name="fakeL">预测角序列下限</param>
+        /// <param name="fakeU">预测角序列上限</param>
+        /// <param name="realL">实测角序列下限</param>
         /// <param name="realU">实测角序列上限</param>
         private double TuneFrictionTranslation(int fakeL, int fakeU, int realL, int realU)
         {
+            // 比较均值
             double predictAvgAngle = 0.0, realAvgAngle = 0.0;
 
             for (int k = fakeL; k <= fakeU; ++k)
             {
-                predictAvgAngle += anglePredict[k];
+                predictAvgAngle += anglePredictAfterAccum[k];
             }
             predictAvgAngle /= (fakeU - fakeL + 1);
 
@@ -838,6 +958,9 @@ namespace URServo
             }
             realAvgAngle /= (realU - realL + 1);
 
+            realAvgAngle = angleCordinates[realU];
+
+            // 所用角度差
             double deltaAngle = trustCoeff * (predictAvgAngle - realAvgAngle);
 
             double deltaForce = deltaAngle * dFrictionToDAngle;
@@ -847,11 +970,16 @@ namespace URServo
                 deltaForce = Math.Sign(deltaForce) * maxRdForce;
             }
 
-            double tempBias = adjustBiasIni + deltaForce;
-            adjustBias = (1 - trustCoeff) * adjustBias + trustCoeff * tempBias;
-            if (adjustBias < 0.0) adjustBias = 0.0;
+            // 比较末端值
+            //double coeff = 1.0 / (1.0 + Math.Exp(-200 * Math.Abs(angleCordinates[realU] - predictAvgAngle) + 14));
+            //deltaForce *= coeff;
 
-            return tempBias;
+            tempBias = adjustBiasIni + deltaForce;
+
+            adjustBias = (1 - trustCoeff) * adjustBias + trustCoeff * tempBias;
+            //if (adjustBias < 0.0) adjustBias = 0.0;
+
+            return deltaForce;
         }
 
 
@@ -1184,10 +1312,13 @@ namespace URServo
         /// <param name="MoveDirectionAtTcp">相对Tcp坐标系的既定运动方向</param>
         /// <param name="DetectDirectionAtTcp">相对Tcp坐标系的既定力保持方向</param>
         /// <param name="tcpCurrentPosition">实时Tcp坐标</param>
+        /// <param name="backDistance">倒退距离</param>
         /// <returns>返回是否旋转</returns>
         public bool RotateAboutInitialAngle(ServoDirectionAtTcp MoveDirectionAtTcp,
                                                                   ServoDirectionAtTcp DetectDirectionAtTcp,
-                                                                  double[] tcpCurrentPosition)
+                                                                  double[] tcpCurrentPosition,
+                                                                  ref double angle,
+                                                                  double backDistance = 0.001)
         {
             // 设定运动和力保持方向
             servoMotionMovingDirectionAtTcp = MoveDirectionAtTcp;
@@ -1244,20 +1375,24 @@ namespace URServo
             servoMotionInitialVibratingDirectionArrayAtBase = URMath.VectorCrossMultiply(servoMotionInitialMovingDirectionArrayAtBase, servoMotionInitialDetectingDirectionArrayAtBase);
 
             double[] forces = internalProcessor.ServoGetAverageForces();
-            int forceYSign = (MoveDirectionAtTcp == ServoDirectionAtTcp.PositiveY) ? -1 : 1;
+            double forceOnMoving = URMath.VectorDotMultiply(servoMotionMovingDirectionArrayAtTcp, new double[] { forces[0], forces[1], forces[2] });
+            double forceOnDetecting = URMath.VectorDotMultiply(servoMotionDetectingDirectionArrayAtTcp, new double[] { forces[0], forces[1], forces[2] });
 
-            if (forces[1] * forceYSign > 0)
+            if (forceOnMoving < 0.0)
             {
                 servoMotionInitialAngle = 0.0;
                 return false;
             }
 
-            double theta = Math.Atan2(Math.Abs(forces[1]), Math.Abs(forces[2]));
+            double theta = Math.Atan2(Math.Abs(forceOnMoving), Math.Abs(forceOnDetecting));
             if (theta < 0.0 || theta > Math.PI / 2.0)
             {
                 servoMotionInitialAngle = 0.0;
                 return false;
             }
+
+            if (Double.IsNaN(theta)) 
+                return false;
 
             servoMotionInitialAngle = theta;
             Task.Run(new Action(() =>
@@ -1265,7 +1400,7 @@ namespace URServo
                 double[] nextPosition = new double[] { tcpCurrentPosition[0], tcpCurrentPosition[1], tcpCurrentPosition[2] };
                 for (int k = 0; k < 3; k++)
                 {
-                    nextPosition[k] += servoMotionInitialDetectingDirectionArrayAtBase[k] * (-0.001);
+                    nextPosition[k] += servoMotionInitialDetectingDirectionArrayAtBase[k] * (-backDistance);
                 }
 
                 double[] nextPosture = URMath.Quatnum2AxisAngle(
@@ -1276,11 +1411,10 @@ namespace URServo
 
                 internalProcessor.SendURCommanderMoveL(new double[] { nextPosition[0], nextPosition[1], nextPosition[2], nextPosture[0], nextPosture[1], nextPosture[2] }, 0.1, 0.1);
             }));
+            angle = theta;
 
             return true;
         }
-
-
         #endregion
     }
 }
