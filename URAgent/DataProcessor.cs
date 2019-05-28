@@ -2006,8 +2006,10 @@ namespace URCommunication
         #region 伺服模块字段
         public ServoStraightTranslation servoStraightTranslationModule; // 伺服直线运动模块
         public ServoTangentialTranslation servoTangentialTranslationModule; // 伺服切向运动模块
+        public ServoTangentialTranslationWithForce servoTangentialTranslationWithForceModule; // 伺服切向运动模块(切向力驱动)
         public ServoFreeTranslation servoFreeTranslationModule; // 伺服平移运动模块
         public ServoSphereTranslation servoSphereTranslationModule; // 伺服球面运动模块
+        
         public ServoTest servoTestModule; // 伺服运动测试模块
         #endregion
 
@@ -2019,8 +2021,10 @@ namespace URCommunication
         {
             servoStraightTranslationModule = new ServoStraightTranslation(this, ifUse30004Port);
             servoTangentialTranslationModule = new ServoTangentialTranslation(this, ifUse30004Port);
+            servoTangentialTranslationWithForceModule = new ServoTangentialTranslationWithForce(this, ifUse30004Port);
             servoFreeTranslationModule = new ServoFreeTranslation(this, ifUse30004Port);
             servoSphereTranslationModule = new ServoSphereTranslation(this, ifUse30004Port);
+            
             servoTestModule = new ServoTest(this, ifUse30004Port);
         }
 
@@ -2031,9 +2035,11 @@ namespace URCommunication
         {
             servoStraightTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityBaseForces);
             servoTangentialTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
+            servoTangentialTranslationWithForceModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
             servoFreeTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
             servoSphereTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
-            servoTestModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
+
+            servoTestModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces, speedsTcpActual);
         }
         #endregion
 

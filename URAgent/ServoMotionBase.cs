@@ -102,7 +102,7 @@ namespace URServo
         /// </summary>
         /// <param name="tcpRealPosition">实时Tcp坐标</param>
         /// <param name="referenceForce">参考力信号</param>
-        public virtual void ServoMotionWork(double[] tcpRealPosition, double[] referenceForce)
+        public virtual void ServoMotionWork(double[] tcpRealPosition, double[] referenceForce, double[] moreInfo = null)
         {
             // 1. 没有打开伺服运动模块即刻返回
             if (!servoMotionIfOpen)
@@ -126,7 +126,7 @@ namespace URServo
             }
 
             // 4. 计算伺服线运动量
-            double[] nextTcpPosition = ServoMotionNextTcpPosition(tcpRealPosition, referenceForce);
+            double[] nextTcpPosition = ServoMotionNextTcpPosition(tcpRealPosition, referenceForce, moreInfo);
 
             // 5. 发送计算得到的运动量
             ServoMotionPositionSend(nextTcpPosition);
@@ -170,7 +170,7 @@ namespace URServo
         /// <param name="tcpRealPosition">实时Tcp坐标</param>
         /// <param name="referenceForce">参考力信号</param>
         /// <returns>返回下一周期的Tcp位置</returns>
-        protected abstract double[] ServoMotionNextTcpPosition(double[] tcpRealPosition, double[] referenceForce);
+        protected abstract double[] ServoMotionNextTcpPosition(double[] tcpRealPosition, double[] referenceForce, double[] moreInfo = null);
 
         /// <summary>
         /// 伺服运动模块中的位置指令下达

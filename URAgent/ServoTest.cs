@@ -562,7 +562,7 @@ namespace URServo
         /// <param name="tcpRealPosition">实时Tcp坐标</param>
         /// <param name="referenceForce">参考力信号</param>
         /// <returns>返回下一周期的Tcp位置</returns>
-        protected override double[] ServoMotionNextTcpPosition(double[] tcpRealPosition, double[] referenceForce)
+        protected override double[] ServoMotionNextTcpPosition(double[] tcpRealPosition, double[] referenceForce, double[] moreInfo = null)
         {
             double[] nextTcpPosition = (double[])tcpRealPosition.Clone();
 
@@ -585,51 +585,54 @@ namespace URServo
             }
 
             // 力保持方向上加一定的增量
-            double differenceForce = URMath.VectorDotMultiply(referenceForce, servoMotionDetectingDirectionArrayAtTcp) - servoMotionPreservedForceForChange;
-            double forceDirectionIncrement = 0.0;
-            if (Math.Abs(differenceForce) <= servoMotionDetectingMinAvailableForce)
-            {
-                forceDirectionIncrement = 0.0;
-            }
-            else if (Math.Abs(differenceForce) >= servoMotionDetectingMaxAvailableForce)
-            {
-                forceDirectionIncrement = Math.Sign(differenceForce) * servoMotionDetectingPeriodicalMaxIncrement;
-            }
-            else
-            {
-                forceDirectionIncrement = Math.Sign(differenceForce) * ((Math.Abs(differenceForce) - servoMotionDetectingMinAvailableForce) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) + servoMotionDetectingPeriodicalMinIncrement);
-            }
-            for (int k = 0; k < 3; k++)
-            {
-                nextTcpPosition[k] += detectingDirectionAtBase[k] * forceDirectionIncrement;
-            }
-
             //double differenceForce = URMath.VectorDotMultiply(referenceForce, servoMotionDetectingDirectionArrayAtTcp) - servoMotionPreservedForceForChange;
+            //double forceDirectionIncrement = 0.0;
             //if (Math.Abs(differenceForce) <= servoMotionDetectingMinAvailableForce)
             //{
-            //    differenceForce = Math.Sign(differenceForce) * servoMotionDetectingMinAvailableForce;
+            //    forceDirectionIncrement = 0.0;
             //}
             //else if (Math.Abs(differenceForce) >= servoMotionDetectingMaxAvailableForce)
             //{
-            //    differenceForce = Math.Sign(differenceForce) * servoMotionDetectingMaxAvailableForce;
+            //    forceDirectionIncrement = Math.Sign(differenceForce) * servoMotionDetectingPeriodicalMaxIncrement;
             //}
-
-            //double forceDirectionIncrement = Math.Sign(differenceForce) * ((Math.Abs(differenceForce) - servoMotionDetectingMinAvailableForce) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) + servoMotionDetectingPeriodicalMinIncrement);
-            //forceDirectionIncrement += (differenceForce - lastDeltaForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) / 2.0;
-            //lastDeltaForce = differenceForce;
-
-            //if (Math.Abs(forceDirectionIncrement) <= servoMotionDetectingPeriodicalMinIncrement)
+            //else
             //{
-            //    forceDirectionIncrement = Math.Sign(forceDirectionIncrement) * servoMotionDetectingPeriodicalMinIncrement;
-            //}
-            //else if (Math.Abs(forceDirectionIncrement) >= servoMotionDetectingPeriodicalMaxIncrement)
-            //{
-            //    forceDirectionIncrement = Math.Sign(forceDirectionIncrement) * servoMotionDetectingPeriodicalMaxIncrement;
+            //    forceDirectionIncrement = Math.Sign(differenceForce) * ((Math.Abs(differenceForce) - servoMotionDetectingMinAvailableForce) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) + servoMotionDetectingPeriodicalMinIncrement);
             //}
             //for (int k = 0; k < 3; k++)
             //{
             //    nextTcpPosition[k] += detectingDirectionAtBase[k] * forceDirectionIncrement;
             //}
+
+            double differenceForce = URMath.VectorDotMultiply(referenceForce, servoMotionDetectingDirectionArrayAtTcp) - servoMotionPreservedForceForChange;
+            if (Math.Abs(differenceForce) <= servoMotionDetectingMinAvailableForce)
+            {
+                differenceForce = Math.Sign(differenceForce) * servoMotionDetectingMinAvailableForce;
+            }
+            else if (Math.Abs(differenceForce) >= servoMotionDetectingMaxAvailableForce)
+            {
+                differenceForce = Math.Sign(differenceForce) * servoMotionDetectingMaxAvailableForce;
+            }
+
+            double forceDirectionIncrement = Math.Sign(differenceForce) * ((Math.Abs(differenceForce) - servoMotionDetectingMinAvailableForce) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) + servoMotionDetectingPeriodicalMinIncrement);
+            //forceDirectionIncrement += (differenceForce - lastDeltaForce) * (servoMotionDetectingPeriodicalMaxIncrement - servoMotionDetectingPeriodicalMinIncrement) / (servoMotionDetectingMaxAvailableForce - servoMotionDetectingMinAvailableForce) / 2.0;
+            //lastDeltaForce = differenceForce;
+
+            forceDirectionIncrement -= moreInfo[2] / 100;
+
+
+            if (Math.Abs(forceDirectionIncrement) <= servoMotionDetectingPeriodicalMinIncrement)
+            {
+                forceDirectionIncrement = Math.Sign(forceDirectionIncrement) * servoMotionDetectingPeriodicalMinIncrement;
+            }
+            else if (Math.Abs(forceDirectionIncrement) >= servoMotionDetectingPeriodicalMaxIncrement)
+            {
+                forceDirectionIncrement = Math.Sign(forceDirectionIncrement) * servoMotionDetectingPeriodicalMaxIncrement;
+            }
+            for (int k = 0; k < 3; k++)
+            {
+                nextTcpPosition[k] += detectingDirectionAtBase[k] * forceDirectionIncrement;
+            }
 
             // 当前运动坐标系中的坐标获取
             double[] arrayP = new double[] { tcpRealPosition[0] - servoMotionBeginTcpPosition[0], tcpRealPosition[1] - servoMotionBeginTcpPosition[1], tcpRealPosition[2] - servoMotionBeginTcpPosition[2] };
@@ -739,9 +742,9 @@ namespace URServo
                                                                                                      URMath.AxisAngle2Quatnum(new double[] { servoMotionBeginTcpPosition[3], servoMotionBeginTcpPosition[4], servoMotionBeginTcpPosition[5] }), 
                                                                                                      URMath.AxisAngle2Quatnum(new double[] { predictAngle * servoMotionInitialVibratingDirectionArrayAtBase[0], predictAngle * servoMotionInitialVibratingDirectionArrayAtBase[1], predictAngle * servoMotionInitialVibratingDirectionArrayAtBase[2] }) }));
 
-            nextTcpPosition[3] = nextPosture[0];
-            nextTcpPosition[4] = nextPosture[1];
-            nextTcpPosition[5] = nextPosture[2];
+            //nextTcpPosition[3] = nextPosture[0];
+            //nextTcpPosition[4] = nextPosture[1];
+            //nextTcpPosition[5] = nextPosture[2];
 
 
             //// 记录数据
@@ -780,6 +783,12 @@ namespace URServo
                                                                                     referenceForce[3], 
                                                                                     referenceForce[4], 
                                                                                     referenceForce[5], 
+                                                                                    moreInfo[0],
+                                                                                    moreInfo[1],
+                                                                                    moreInfo[2],
+                                                                                    moreInfo[3],
+                                                                                    moreInfo[4],
+                                                                                    moreInfo[5],
                                                                                     coordinateV, 
                                                                                     coordinateD, 
                                                                                     currentAngle / Math.PI * 180.0,
@@ -808,6 +817,12 @@ namespace URServo
                                                                                     referenceForce[3], 
                                                                                     referenceForce[4], 
                                                                                     referenceForce[5], 
+                                                                                    moreInfo[0],
+                                                                                    moreInfo[1],
+                                                                                    moreInfo[2],
+                                                                                    moreInfo[3],
+                                                                                    moreInfo[4],
+                                                                                    moreInfo[5],
                                                                                     coordinateV, 
                                                                                     coordinateD, 
                                                                                     currentAngle / Math.PI * 180.0,

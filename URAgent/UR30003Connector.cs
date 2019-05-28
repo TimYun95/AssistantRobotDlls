@@ -730,7 +730,7 @@ namespace URCommunication
                                                                   IPAddress.NetworkToHostOrder(
                                                                   BitConverter.ToInt64(getDatas, (int)RealTimeDatasMarks.Temperature + k * 8)));
 
-                voltagesJoint[0] = BitConverter.Int64BitsToDouble(
+                voltagesJoint[k] = BitConverter.Int64BitsToDouble(
                                                          IPAddress.NetworkToHostOrder(
                                                          BitConverter.ToInt64(getDatas, (int)RealTimeDatasMarks.VoltageJ + k * 8)));
             }
@@ -1224,7 +1224,8 @@ namespace URCommunication
 
             transformedList.AddRange(positionsTcpActual);
             transformedList.AddRange(positionsJointActual);
-            transformedList.AddRange(temperaturesJoint);
+            //transformedList.AddRange(temperaturesJoint);speedsTcpActual
+            transformedList.AddRange(speedsTcpActual);
             transformedList.AddRange(currentsJointActual);
 
             foreach (bool io in inputTool)
@@ -1236,6 +1237,7 @@ namespace URCommunication
             transformedList.Add(programState);
 
             transformedList.AddRange(removeGravityTcpForces);
+            //transformedList.AddRange(originalFlangeForces);
 
             return transformedList.ToArray();
         }

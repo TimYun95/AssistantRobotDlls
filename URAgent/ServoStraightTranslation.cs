@@ -396,7 +396,7 @@ namespace URServo
         /// <param name="tcpRealPosition">实时Tcp坐标</param>
         /// <param name="referenceForce">参考力信号</param>
         /// <returns>返回下一周期的Tcp位置</returns>
-        protected override double[] ServoMotionNextTcpPosition(double[] tcpRealPosition, double[] referenceForce)
+        protected override double[] ServoMotionNextTcpPosition(double[] tcpRealPosition, double[] referenceForce, double[] moreInfo = null)
         {
             double[] nextTcpPosition = (double[])tcpRealPosition.Clone();
 
