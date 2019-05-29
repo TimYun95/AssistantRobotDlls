@@ -67,7 +67,7 @@ namespace URModule
             DetectingErrorForceMin = 0,
             DetectingErrorForceMax = 1,
             DetectingSpeedMin = 2,
-            IfEnableDetectingForceChangeAtTransitionalPart = 3,
+            IfEnableAngleCorrected = 3,
             VibratingAttitudeMaxAtSmoothPart = 4,
             VibratingAttitudeMinAtSteepPart = 5,
             VibratingAttitudeMaxAtSteepPart = 6,
@@ -75,7 +75,7 @@ namespace URModule
             MovingStopDistance = 8,
             DetectingStopDistance = 9,
             DetectingSafetyLiftDistance = 10,
-            IfEnableDetectingForceCheck = 11,
+            IfEnableInitialDetectingForce = 11,
             DetectingSinkDistance = 12,
             VibratingAngleDegree = 13,
             MovingSpeedDegree = 14,
@@ -160,20 +160,26 @@ namespace URModule
         protected double detectingSpeedMin = 0.0; // 探测方向运动速度最小值
 
         protected double detectingSpeedMax = 0.0; // 探测方向运动速度最大值
+
+        protected const double vibratingErrorForceMin = 0.0; // 摆动方向误差力最小值
+        protected const double vibratingErrorForceMax = 1.0; // 摆动方向误差力最大值
+        protected const double vibratingSpeedMin = 0.0; // 摆动方向运动速度最小值
+        protected const double inverseAngleToFriction = 20.0; // 摆动方向角度误差转换到模板力误差的系数
+
         protected double vibratingSpeedMax = 0.0; // 摆动方向运动速度最大值
-        protected int vibratingAttitudeJudgeSamplingNumber = 0; // 姿态判别所需的采样个数
-        protected int vibratingAttitudeJudgeDifferenceInterval = 0; // 姿态判别所需的差分距离
-        protected int vibratingAttitudeJudgeExtensionPeriod = 0; // 姿态判别所需的外延周期
-        protected bool ifEnableDetectingForceChange = false; // 探测力变化开关
-        protected double detectingForceChangeTimesMax = 0.0; // 探测力变化最大倍数 
-        protected double detectingForceChangeSwitchAngle = 0.0; // 探测力变化开关角度
-        protected double detectingForceChangeDecayAngle = 0.0; // 探测力变化衰减角度
+        //protected int vibratingAttitudeJudgeSamplingNumber = 0; // 姿态判别所需的采样个数
+        //protected int vibratingAttitudeJudgeDifferenceInterval = 0; // 姿态判别所需的差分距离
+        //protected int vibratingAttitudeJudgeExtensionPeriod = 0; // 姿态判别所需的外延周期
+        protected bool ifEnableAngleCorrected = false; // 姿态角矫正开关
+        //protected double detectingForceChangeTimesMax = 0.0; // 探测力变化最大倍数 
+        //protected double detectingForceChangeSwitchAngle = 0.0; // 探测力变化开关角度
+        //protected double detectingForceChangeDecayAngle = 0.0; // 探测力变化衰减角度
 
         protected double vibratingAttitudeMax = 0.0; // 探测姿态角最大值
         protected double movingSpeed = 0.0; // 移动速度
         protected double detectingBasicPreservedForce = 0.0; // 探测基准保持力大小
-        protected bool ifEnableDetectingForceChangeAtTransitionalPart = false; // 过渡段探测力变化开关
-        protected const double detectingForceChangeAtTransitionalPartDeclineProportion = 0.2; // 过渡段探测力变化开关
+        //protected bool ifEnableDetectingForceChangeAtTransitionalPart = false; // 过渡段探测力变化开关
+        //protected const double detectingForceChangeAtTransitionalPartDeclineProportion = 0.2; // 过渡段探测力变化开关
         protected double vibratingAttitudeMaxAtSmoothPart = 0.0; // 平滑段摆动姿态角最大值
         protected double vibratingAttitudeMinAtSteepPart = 0.0; // 陡峭段摆动姿态角最小值
         protected double vibratingAttitudeMaxAtSteepPart = 0.0; // 陡峭段摆动姿态角最大值
@@ -184,7 +190,7 @@ namespace URModule
         protected double movingStopDistance = 0.0; // 移动方向停止距离
         protected double detectingStopDistance = 0.0; // 探测方向停止距离
         protected double detectingSafetyLiftDistance = 0.0; // 探测方向安全上升距离
-        protected bool ifEnableDetectingForceCheck = false; // 探测力大小检查开关
+        protected bool ifEnableInitialDetectingForce = false; // 初始力探测矫正初始姿态开关
         protected double detectingSinkDistance = 0.0; // 探测方向下沉距离
 
         protected VibratingMagnitude vibratingAngleDegree = VibratingMagnitude.Medium; // 摆动方向摆动幅度
@@ -300,7 +306,7 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 8), new string[] { movingUpEdgeDistanceTemplateValue.ToString("0.000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 9), new string[] { (detectingStopDistanceUpperBound - 0.011).ToString("0.000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 10), new string[] { (detectingSafetyLiftDistanceLowerBound + 0.005).ToString("0.000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 11), new string[] { "True" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 11), new string[] { "False" });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 12), new string[] { detectingSinkDistanceForSlightlyLightDetectingIntensity.ToString("0.000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 13), new string[] { Enum.GetName(typeof(VibratingMagnitude), VibratingMagnitude.Medium) });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 14), new string[] { Enum.GetName(typeof(MovingLevel), MovingLevel.Medium) });
@@ -328,7 +334,7 @@ namespace URModule
             detectingErrorForceMin = double.Parse(ParameterStringList[(int)ParameterList.DetectingErrorForceMin]);
             detectingErrorForceMax = double.Parse(ParameterStringList[(int)ParameterList.DetectingErrorForceMax]);
             detectingSpeedMin = double.Parse(ParameterStringList[(int)ParameterList.DetectingSpeedMin]);
-            ifEnableDetectingForceChangeAtTransitionalPart = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableDetectingForceChangeAtTransitionalPart]);
+            ifEnableAngleCorrected = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableAngleCorrected]);
 
             tempValue = double.Parse(ParameterStringList[(int)ParameterList.VibratingAttitudeMaxAtSmoothPart]);
             vibratingAttitudeMaxAtSmoothPart = tempValue <= notChange ? vibratingAttitudeMaxAtSmoothPart : tempValue;
@@ -344,7 +350,7 @@ namespace URModule
 
             detectingStopDistance = double.Parse(ParameterStringList[(int)ParameterList.DetectingStopDistance]);
             detectingSafetyLiftDistance = double.Parse(ParameterStringList[(int)ParameterList.DetectingSafetyLiftDistance]);
-            ifEnableDetectingForceCheck = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableDetectingForceCheck]);
+            ifEnableInitialDetectingForce = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableInitialDetectingForce]);
             detectingSinkDistance = double.Parse(ParameterStringList[(int)ParameterList.DetectingSinkDistance]);
             vibratingAngleDegree = (VibratingMagnitude)byte.Parse(ParameterStringList[(int)ParameterList.VibratingAngleDegree]);
             movingSpeedDegree = (MovingLevel)byte.Parse(ParameterStringList[(int)ParameterList.MovingSpeedDegree]);
@@ -377,7 +383,7 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 0), new string[] { detectingErrorForceMin.ToString("0.0") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 1), new string[] { detectingErrorForceMax.ToString("0.0") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 2), new string[] { detectingSpeedMin.ToString("0.0000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 3), new string[] { ifEnableDetectingForceChangeAtTransitionalPart.ToString() });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 3), new string[] { ifEnableAngleCorrected.ToString() });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 4), new string[] { vibratingAttitudeMaxAtSmoothPart.ToString("0.0000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 5), new string[] { vibratingAttitudeMinAtSteepPart.ToString("0.0000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 6), new string[] { vibratingAttitudeMaxAtSteepPart.ToString("0.0000") });
@@ -385,7 +391,7 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 8), new string[] { movingStopDistance.ToString("0.000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 9), new string[] { detectingStopDistance.ToString("0.000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 10), new string[] { detectingSafetyLiftDistance.ToString("0.000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 11), new string[] { ifEnableDetectingForceCheck.ToString() });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 11), new string[] { ifEnableInitialDetectingForce.ToString() });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 12), new string[] { detectingSinkDistance.ToString("0.000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 13), new string[] { Enum.GetName(typeof(VibratingMagnitude), vibratingAngleDegree) });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 14), new string[] { Enum.GetName(typeof(MovingLevel), movingSpeedDegree) });
@@ -412,7 +418,7 @@ namespace URModule
             detectingErrorForceMin = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingErrorForceMin)][0]);
             detectingErrorForceMax = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingErrorForceMax)][0]);
             detectingSpeedMin = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingSpeedMin)][0]);
-            ifEnableDetectingForceChangeAtTransitionalPart = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableDetectingForceChangeAtTransitionalPart)][0]);
+            ifEnableAngleCorrected = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableAngleCorrected)][0]);
             vibratingAttitudeMaxAtSmoothPart = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.VibratingAttitudeMaxAtSmoothPart)][0]);
             vibratingAttitudeMinAtSteepPart = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.VibratingAttitudeMinAtSteepPart)][0]);
             vibratingAttitudeMaxAtSteepPart = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.VibratingAttitudeMaxAtSteepPart)][0]);
@@ -420,7 +426,7 @@ namespace URModule
             movingStopDistance = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.MovingStopDistance)][0]);
             detectingStopDistance = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingStopDistance)][0]);
             detectingSafetyLiftDistance = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingSafetyLiftDistance)][0]);
-            ifEnableDetectingForceCheck = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableDetectingForceCheck)][0]);
+            ifEnableInitialDetectingForce = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableInitialDetectingForce)][0]);
             detectingSinkDistance = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingSinkDistance)][0]);
             vibratingAngleDegree = (VibratingMagnitude)Enum.Parse(typeof(VibratingMagnitude), parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.VibratingAngleDegree)][0]);
             movingSpeedDegree = (MovingLevel)Enum.Parse(typeof(MovingLevel), parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.MovingSpeedDegree)][0]);
@@ -456,7 +462,7 @@ namespace URModule
             parametersList.Add(new string[] { detectingErrorForceMin.ToString("0.0") });
             parametersList.Add(new string[] { detectingErrorForceMax.ToString("0.0") });
             parametersList.Add(new string[] { detectingSpeedMin.ToString("0.0000") });
-            parametersList.Add(new string[] { ifEnableDetectingForceChangeAtTransitionalPart.ToString() });
+            parametersList.Add(new string[] { ifEnableAngleCorrected.ToString() });
             parametersList.Add(new string[] { vibratingAttitudeMaxAtSmoothPart.ToString("0.0000") });
             parametersList.Add(new string[] { vibratingAttitudeMinAtSteepPart.ToString("0.0000") });
             parametersList.Add(new string[] { vibratingAttitudeMaxAtSteepPart.ToString("0.0000") });
@@ -464,7 +470,7 @@ namespace URModule
             parametersList.Add(new string[] { movingStopDistance.ToString("0.000") });
             parametersList.Add(new string[] { detectingStopDistance.ToString("0.000") });
             parametersList.Add(new string[] { detectingSafetyLiftDistance.ToString("0.000") });
-            parametersList.Add(new string[] { ifEnableDetectingForceCheck.ToString() });
+            parametersList.Add(new string[] { ifEnableInitialDetectingForce.ToString() });
             parametersList.Add(new string[] { detectingSinkDistance.ToString("0.000") });
             parametersList.Add(new string[] { Enum.GetName(typeof(VibratingMagnitude), vibratingAngleDegree) });
             parametersList.Add(new string[] { Enum.GetName(typeof(MovingLevel), movingSpeedDegree) });
@@ -640,26 +646,23 @@ namespace URModule
         /// </summary>
         protected virtual void CalculateDetectingSinkDistance()
         {
-            if (!ifEnableDetectingForceCheck)
+            switch (detectingForceDegree)
             {
-                switch (detectingForceDegree)
-                {
-                    case DetectingIntensity.Light:
-                        detectingSinkDistance = detectingSinkDistanceForLightDetectingIntensity;
-                        break;
-                    case DetectingIntensity.SlightlyLight:
-                        detectingSinkDistance = detectingSinkDistanceForSlightlyLightDetectingIntensity;
-                        break;
-                    case DetectingIntensity.SlightltHeavy:
-                        detectingSinkDistance = detectingSinkDistanceForSlightlyHeavyDetectingIntensity;
-                        break;
-                    case DetectingIntensity.Heavy:
-                        detectingSinkDistance = detectingSinkDistanceForHeavyDetectingIntensity;
-                        break;
-                    default:
-                        detectingSinkDistance = detectingSinkDistanceForSlightlyLightDetectingIntensity;
-                        break;
-                }
+                case DetectingIntensity.Light:
+                    detectingSinkDistance = detectingSinkDistanceForLightDetectingIntensity;
+                    break;
+                case DetectingIntensity.SlightlyLight:
+                    detectingSinkDistance = detectingSinkDistanceForSlightlyLightDetectingIntensity;
+                    break;
+                case DetectingIntensity.SlightltHeavy:
+                    detectingSinkDistance = detectingSinkDistanceForSlightlyHeavyDetectingIntensity;
+                    break;
+                case DetectingIntensity.Heavy:
+                    detectingSinkDistance = detectingSinkDistanceForHeavyDetectingIntensity;
+                    break;
+                default:
+                    detectingSinkDistance = detectingSinkDistanceForSlightlyLightDetectingIntensity;
+                    break;
             }
         }
 
@@ -742,8 +745,8 @@ namespace URModule
             CalculateDetectingSpeedMax();
             CalculateVibratingSpeedMax(ThisRouteAngle);
             CalculateVibratingAttitudeMax(ThisRouteAngle);
-            CalculateVibratingAttitudeJudgeParameters();
-            CalculateDetectingForceChangeParameters(ThisRouteAngle);
+            //CalculateVibratingAttitudeJudgeParameters();
+            //CalculateDetectingForceChangeParameters(ThisRouteAngle);
         }
 
         /// <summary>
@@ -801,27 +804,7 @@ namespace URModule
         /// <param name="ThisRouteAngle">该程路径所占的角度</param>
         protected virtual void CalculateVibratingSpeedMax(double ThisRouteAngle)
         {
-            double basicForceFactor = 1.0 / (1.0 + Math.Exp(10.0 * detectingBasicPreservedForce - 45.0)) / 10000.0;
-
-            if (ThisRouteAngle > Math.PI / 2.0 - smoothPartHalfAngle && ThisRouteAngle <= Math.PI + smoothPartHalfAngle)
-            { // 平滑段 无保持力变化
-                vibratingSpeedMax = movingSpeed / 6.0 + 0.002 / 3.0 + basicForceFactor;
-            }
-            else if (ThisRouteAngle >= Math.PI * 1.5 - steepPartHalfAngle && ThisRouteAngle <= Math.PI * 1.5 + steepPartHalfAngle)
-            { // 陡峭段 有保持力变化
-                vibratingSpeedMax = -Math.Pow(movingSpeed, 2.0) * 10000.0 / 3.0 + movingSpeed * 11.0 / 3.0 + 0.0001 + basicForceFactor;
-            }
-            else
-            {
-                if (ifEnableDetectingForceChangeAtTransitionalPart)
-                { // 过渡段 有保持力变化
-                    vibratingSpeedMax = -Math.Pow(movingSpeed, 2.0) * 10000.0 / 3.0 + movingSpeed * 11.0 / 3.0 + 0.0001 + basicForceFactor;
-                }
-                else
-                { // 过渡段 无保持力变化
-                    vibratingSpeedMax = movingSpeed / 6.0 + 0.002 / 3.0 + basicForceFactor;
-                }
-            }
+            vibratingSpeedMax = movingSpeed * 100.0 / 3.0 + 1.0 / 120.0; 
             vibratingSpeedMax = Math.Round(vibratingSpeedMax * 10000.0) / 10000.0;
         }
 
@@ -850,44 +833,44 @@ namespace URModule
         /// <summary>
         /// 计算单程路径的姿态判别用参数
         /// </summary>
-        protected virtual void CalculateVibratingAttitudeJudgeParameters()
-        {
-            vibratingAttitudeJudgeSamplingNumber = 150 - (int)Math.Round(movingSpeed * 250000 / 2.0);
-            vibratingAttitudeJudgeDifferenceInterval = (int)Math.Round((double)vibratingAttitudeJudgeSamplingNumber * 3.0 / 5.0);
-            vibratingAttitudeJudgeExtensionPeriod = (int)Math.Round((double)vibratingAttitudeJudgeSamplingNumber * 4.0 / 5.0);
-        }
+        //protected virtual void CalculateVibratingAttitudeJudgeParameters()
+        //{
+        //    vibratingAttitudeJudgeSamplingNumber = 150 - (int)Math.Round(movingSpeed * 250000 / 2.0);
+        //    vibratingAttitudeJudgeDifferenceInterval = (int)Math.Round((double)vibratingAttitudeJudgeSamplingNumber * 3.0 / 5.0);
+        //    vibratingAttitudeJudgeExtensionPeriod = (int)Math.Round((double)vibratingAttitudeJudgeSamplingNumber * 4.0 / 5.0);
+        //}
 
         /// <summary>
         /// 计算单程路径的探测力变化用参数，以及是否会用到
         /// </summary>
         /// <param name="ThisRouteAngle">该程路径所占的角度</param>
-        protected virtual void CalculateDetectingForceChangeParameters(double ThisRouteAngle)
-        {
-            if (ThisRouteAngle > Math.PI / 2.0 - smoothPartHalfAngle && ThisRouteAngle <= Math.PI + smoothPartHalfAngle)
-            { // 平滑段
-                ifEnableDetectingForceChange = false;
-            }
-            else if (ThisRouteAngle >= Math.PI * 1.5 - steepPartHalfAngle && ThisRouteAngle <= Math.PI * 1.5 + steepPartHalfAngle)
-            { // 陡峭段
-                ifEnableDetectingForceChange = true;
-                detectingForceChangeTimesMax = 3.48 - 0.7933 * detectingBasicPreservedForce + 0.12 * Math.Pow(detectingBasicPreservedForce, 2.0) - 0.006667 * Math.Pow(detectingBasicPreservedForce, 3.0);
-            }
-            else
-            { // 过渡段
-                if (ifEnableDetectingForceChangeAtTransitionalPart)
-                {
-                    ifEnableDetectingForceChange = true;
-                    detectingForceChangeTimesMax = 3.48 - 0.7933 * detectingBasicPreservedForce + 0.12 * Math.Pow(detectingBasicPreservedForce, 2.0) - 0.006667 * Math.Pow(detectingBasicPreservedForce, 3.0);
-                    detectingForceChangeTimesMax = ((detectingForceChangeTimesMax - 1.0) * detectingForceChangeAtTransitionalPartDeclineProportion + 1.0);
-                }
-                else
-                {
-                    ifEnableDetectingForceChange = false;
-                }
-            }
-            detectingForceChangeDecayAngle = 0.173 * vibratingAttitudeMax + 0.083893;
-            detectingForceChangeSwitchAngle = vibratingAttitudeMax - detectingForceChangeDecayAngle;
-        }
+        //protected virtual void CalculateDetectingForceChangeParameters(double ThisRouteAngle)
+        //{
+        //    if (ThisRouteAngle > Math.PI / 2.0 - smoothPartHalfAngle && ThisRouteAngle <= Math.PI + smoothPartHalfAngle)
+        //    { // 平滑段
+        //        ifEnableDetectingForceChange = false;
+        //    }
+        //    else if (ThisRouteAngle >= Math.PI * 1.5 - steepPartHalfAngle && ThisRouteAngle <= Math.PI * 1.5 + steepPartHalfAngle)
+        //    { // 陡峭段
+        //        ifEnableDetectingForceChange = true;
+        //        detectingForceChangeTimesMax = 3.48 - 0.7933 * detectingBasicPreservedForce + 0.12 * Math.Pow(detectingBasicPreservedForce, 2.0) - 0.006667 * Math.Pow(detectingBasicPreservedForce, 3.0);
+        //    }
+        //    else
+        //    { // 过渡段
+        //        if (ifEnableDetectingForceChangeAtTransitionalPart)
+        //        {
+        //            ifEnableDetectingForceChange = true;
+        //            detectingForceChangeTimesMax = 3.48 - 0.7933 * detectingBasicPreservedForce + 0.12 * Math.Pow(detectingBasicPreservedForce, 2.0) - 0.006667 * Math.Pow(detectingBasicPreservedForce, 3.0);
+        //            detectingForceChangeTimesMax = ((detectingForceChangeTimesMax - 1.0) * detectingForceChangeAtTransitionalPartDeclineProportion + 1.0);
+        //        }
+        //        else
+        //        {
+        //            ifEnableDetectingForceChange = false;
+        //        }
+        //    }
+        //    detectingForceChangeDecayAngle = 0.173 * vibratingAttitudeMax + 0.083893;
+        //    detectingForceChangeSwitchAngle = vibratingAttitudeMax - detectingForceChangeDecayAngle;
+        //}
 
         /// <summary>
         /// 准备开始运行模块
@@ -1076,54 +1059,54 @@ namespace URModule
         /// <param name="WithdrawRadius">避让半径，应该与测得的乳头防撞禁止半径相当</param>
         /// <param name="ForceDegreeNeed">需要停止探测时的力程度大小</param>
         /// <returns>返回运行的任务</returns>
-        public Task ScanForceCheck(double WithdrawRadius, DetectingIntensity ForceDegreeNeed)
-        {
-            if (ifEnableDetectingForceCheck && workingStatus == WorkStatus.ParametersConfiguration)
-            {
-                return Task.Run(new Action(() =>
-                {
-                    // 1. 移动到第一条扫查线开始位置的未下沉位置
-                    double[] firstIterationBeginPositionBeforeSink = internalProcessor.MoveAlongTcpYAxis(((int)ScanningProcess.FrontHalfRound == 0 ? -1.0 : 1.0) * WithdrawRadius,
-                        internalProcessor.RotateByTcpZAxis(Math.PI / 2.0 * (int)ifCheckRightGalactophore, nippleTcpPostion));
-                    internalProcessor.SendURCommanderMoveL(firstIterationBeginPositionBeforeSink, fastMoveAccelerationL, fastMoveSpeedL);
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Move to the lift position over the begin point of the first iteration.");
+        //public Task ScanForceCheck(double WithdrawRadius, DetectingIntensity ForceDegreeNeed)
+        //{
+        //    if (ifEnableDetectingForceCheck && workingStatus == WorkStatus.ParametersConfiguration)
+        //    {
+        //        return Task.Run(new Action(() =>
+        //        {
+        //            // 1. 移动到第一条扫查线开始位置的未下沉位置
+        //            double[] firstIterationBeginPositionBeforeSink = internalProcessor.MoveAlongTcpYAxis(((int)ScanningProcess.FrontHalfRound == 0 ? -1.0 : 1.0) * WithdrawRadius,
+        //                internalProcessor.RotateByTcpZAxis(Math.PI / 2.0 * (int)ifCheckRightGalactophore, nippleTcpPostion));
+        //            internalProcessor.SendURCommanderMoveL(firstIterationBeginPositionBeforeSink, fastMoveAccelerationL, fastMoveSpeedL);
+        //            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Move to the lift position over the begin point of the first iteration.");
 
-                    Thread.Sleep(800);
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                    {
-                        Thread.Sleep(200);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                    }
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the lift position over the begin point of the first iteration.");
+        //            Thread.Sleep(800);
+        //            if (!JudgeIfMotionCanBeContinued()) return;
+        //            while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
+        //            {
+        //                Thread.Sleep(200);
+        //                if (!JudgeIfMotionCanBeContinued()) return;
+        //            }
+        //            if (!JudgeIfMotionCanBeContinued()) return;
+        //            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the lift position over the begin point of the first iteration.");
 
-                    // 2. 执行扫查力度校验
-                    DetectingIntensity preservedDetectingForceDegree = detectingForceDegree;
+        //            // 2. 执行扫查力度校验
+        //            DetectingIntensity preservedDetectingForceDegree = detectingForceDegree;
 
-                    detectingForceDegree = ForceDegreeNeed;
-                    CalculateDetectingBasicPreservedForce();
-                    internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                             internalProcessor.PositionsTcpActual, checkForceSpeed, checkForceAcceleration, detectingBasicPreservedForce);
+        //            detectingForceDegree = ForceDegreeNeed;
+        //            CalculateDetectingBasicPreservedForce();
+        //            internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
+        //                                                                                                                                                     internalProcessor.PositionsTcpActual, checkForceSpeed, checkForceAcceleration, detectingBasicPreservedForce);
 
-                    Thread.Sleep(800);
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                    {
-                        Thread.Sleep(200);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                    }
-                    if (!JudgeIfMotionCanBeContinued()) return;
+        //            Thread.Sleep(800);
+        //            if (!JudgeIfMotionCanBeContinued()) return;
+        //            while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
+        //            {
+        //                Thread.Sleep(200);
+        //                if (!JudgeIfMotionCanBeContinued()) return;
+        //            }
+        //            if (!JudgeIfMotionCanBeContinued()) return;
 
-                    // 3. 提供记录力度校验下降距离 精确到mm
-                    detectingForceDegree = preservedDetectingForceDegree;
+        //            // 3. 提供记录力度校验下降距离 精确到mm
+        //            detectingForceDegree = preservedDetectingForceDegree;
 
-                    Thread.Sleep(100);
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Scan force is checked.");
-                }));
-            }
-            else return null;
-        }
+        //            Thread.Sleep(100);
+        //            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Scan force is checked.");
+        //        }));
+        //    }
+        //    else return null;
+        //}
 
         /// <summary>
         /// 模块执行的工作
@@ -1193,7 +1176,7 @@ namespace URModule
                     // 1.2.1 执行扫查力度校验，方向根据所测得的力定
                     Thread.Sleep(100);
                     internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                             internalProcessor.PositionsTcpActual, 
+                                                                                                                                                             internalProcessor.PositionsTcpActual,
                                                                                                                                                              checkForceSpeedLoop, checkForceAccelerationLoop,
                                                                                                                                                              detectingBasicPreservedForce, true);
 
@@ -1212,33 +1195,31 @@ namespace URModule
                     // 1.4 开始单程运行
                     Thread.Sleep(100);
                     Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                    ServoTangentialTranslation.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslation.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslation.ServoDirectionAtTcp.PositiveY;
-                    internalProcessor.servoTangentialTranslationModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                 ServoTangentialTranslation.ServoDirectionAtTcp.PositiveZ,
+                    ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
+                    internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
                                                                                                                                                  internalProcessor.PositionsTcpActual,
                                                                                                                                                  singleMovingDirection,
-                                                                                                                                                 ServoTangentialTranslation.ServoDirectionAtTcp.PositiveZ,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
                                                                                                                                                  movingStopDistance,
                                                                                                                                                  detectingStopDistance,
                                                                                                                                                  0.0,
-                                                                                                                                                 ServoTangentialTranslation.ServoStopMode.DistanceCondition,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
                                                                                                                                                  movingSpeed,
                                                                                                                                                  detectingSpeedMax,
                                                                                                                                                  detectingSpeedMin,
                                                                                                                                                  detectingErrorForceMax,
                                                                                                                                                  detectingErrorForceMin,
                                                                                                                                                  vibratingSpeedMax,
+                                                                                                                                                 (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
+                                                                                                                                                 inverseAngleToFriction,
+                                                                                                                                                 detectingBasicPreservedForce,
                                                                                                                                                  true,
                                                                                                                                                  vibratingAttitudeMax,
-                                                                                                                                                 vibratingAttitudeJudgeSamplingNumber,
-                                                                                                                                                 vibratingAttitudeJudgeDifferenceInterval,
-                                                                                                                                                 vibratingAttitudeJudgeExtensionPeriod,
-                                                                                                                                                 ifEnableDetectingForceChange,
-                                                                                                                                                 detectingForceChangeTimesMax,
-                                                                                                                                                 detectingForceChangeSwitchAngle,
-                                                                                                                                                 detectingForceChangeDecayAngle);
-
-                    Thread.Sleep(800);
+                                                                                                                                                 ifEnableInitialDetectingForce,
+                                                                                                                                                 ifEnableAngleCorrected);
+                    if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
+                    else Thread.Sleep(800);
                     if (!JudgeIfMotionCanBeContinued()) return;
                     while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
                     {
@@ -1280,7 +1261,7 @@ namespace URModule
                     }
 
                     // 1.8 保存采集的数据
-                    Logger.DataPrinting(internalProcessor.servoTangentialTranslationModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
+                    Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
 
                     // 1.9 为下一程检查做准备
                     angleFlag += checkingStep;
@@ -1349,33 +1330,31 @@ namespace URModule
                     // 2.4 开始单程运行
                     Thread.Sleep(100);
                     Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                    ServoTangentialTranslation.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslation.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslation.ServoDirectionAtTcp.PositiveY;
-                    internalProcessor.servoTangentialTranslationModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                 ServoTangentialTranslation.ServoDirectionAtTcp.PositiveZ,
+                    ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
+                    internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
                                                                                                                                                  internalProcessor.PositionsTcpActual,
                                                                                                                                                  singleMovingDirection,
-                                                                                                                                                 ServoTangentialTranslation.ServoDirectionAtTcp.PositiveZ,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
                                                                                                                                                  movingStopDistance,
                                                                                                                                                  detectingStopDistance,
                                                                                                                                                  0.0,
-                                                                                                                                                 ServoTangentialTranslation.ServoStopMode.DistanceCondition,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
                                                                                                                                                  movingSpeed,
                                                                                                                                                  detectingSpeedMax,
                                                                                                                                                  detectingSpeedMin,
                                                                                                                                                  detectingErrorForceMax,
                                                                                                                                                  detectingErrorForceMin,
                                                                                                                                                  vibratingSpeedMax,
+                                                                                                                                                 (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
+                                                                                                                                                 inverseAngleToFriction,
+                                                                                                                                                 detectingBasicPreservedForce,
                                                                                                                                                  true,
                                                                                                                                                  vibratingAttitudeMax,
-                                                                                                                                                 vibratingAttitudeJudgeSamplingNumber,
-                                                                                                                                                 vibratingAttitudeJudgeDifferenceInterval,
-                                                                                                                                                 vibratingAttitudeJudgeExtensionPeriod,
-                                                                                                                                                 ifEnableDetectingForceChange,
-                                                                                                                                                 detectingForceChangeTimesMax,
-                                                                                                                                                 detectingForceChangeSwitchAngle,
-                                                                                                                                                 detectingForceChangeDecayAngle);
-
-                    Thread.Sleep(800);
+                                                                                                                                                 ifEnableInitialDetectingForce,
+                                                                                                                                                 ifEnableAngleCorrected);
+                    if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
+                    else Thread.Sleep(800);
                     if (!JudgeIfMotionCanBeContinued()) return;
                     while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
                     {
@@ -1417,7 +1396,7 @@ namespace URModule
                     }
 
                     // 2.8 保存采集的数据
-                    Logger.DataPrinting(internalProcessor.servoTangentialTranslationModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
+                    Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
 
                     // 2.9 为下一程检查做准备
                     angleFlag += checkingStep;
@@ -1486,33 +1465,31 @@ namespace URModule
                     // 3.4 开始单程运行
                     Thread.Sleep(100);
                     Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                    ServoTangentialTranslation.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslation.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslation.ServoDirectionAtTcp.PositiveY;
-                    internalProcessor.servoTangentialTranslationModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                 ServoTangentialTranslation.ServoDirectionAtTcp.PositiveZ,
+                    ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
+                    internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
                                                                                                                                                  internalProcessor.PositionsTcpActual,
                                                                                                                                                  singleMovingDirection,
-                                                                                                                                                 ServoTangentialTranslation.ServoDirectionAtTcp.PositiveZ,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
                                                                                                                                                  movingStopDistance,
                                                                                                                                                  detectingStopDistance,
                                                                                                                                                  0.0,
-                                                                                                                                                 ServoTangentialTranslation.ServoStopMode.DistanceCondition,
+                                                                                                                                                 ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
                                                                                                                                                  movingSpeed,
                                                                                                                                                  detectingSpeedMax,
                                                                                                                                                  detectingSpeedMin,
                                                                                                                                                  detectingErrorForceMax,
                                                                                                                                                  detectingErrorForceMin,
                                                                                                                                                  vibratingSpeedMax,
+                                                                                                                                                 (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
+                                                                                                                                                 inverseAngleToFriction,
+                                                                                                                                                 detectingBasicPreservedForce,
                                                                                                                                                  true,
                                                                                                                                                  vibratingAttitudeMax,
-                                                                                                                                                 vibratingAttitudeJudgeSamplingNumber,
-                                                                                                                                                 vibratingAttitudeJudgeDifferenceInterval,
-                                                                                                                                                 vibratingAttitudeJudgeExtensionPeriod,
-                                                                                                                                                 ifEnableDetectingForceChange,
-                                                                                                                                                 detectingForceChangeTimesMax,
-                                                                                                                                                 detectingForceChangeSwitchAngle,
-                                                                                                                                                 detectingForceChangeDecayAngle);
-
-                    Thread.Sleep(800);
+                                                                                                                                                 ifEnableInitialDetectingForce,
+                                                                                                                                                 ifEnableAngleCorrected);
+                    if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
+                    else Thread.Sleep(800);
                     if (!JudgeIfMotionCanBeContinued()) return;
                     while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
                     {
@@ -1554,7 +1531,7 @@ namespace URModule
                     }
 
                     // 3.8 保存采集的数据
-                    Logger.DataPrinting(internalProcessor.servoTangentialTranslationModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
+                    Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
                 }
                 while (false);
 
@@ -1610,7 +1587,7 @@ namespace URModule
         {
             internalProcessor.nonServoFindForceTranslationModule.NonServoMotionAbort();
             internalProcessor.servoFreeTranslationModule.ServoMotionAbort();
-            internalProcessor.servoTangentialTranslationModule.ServoMotionAbort();
+            internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionAbort();
         }
 
         #endregion

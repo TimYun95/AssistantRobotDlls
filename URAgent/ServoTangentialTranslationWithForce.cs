@@ -63,7 +63,7 @@ namespace URServo
         protected ServoStopMode servoMotionActiveDistanceOrRecurrentCondition = ServoStopMode.DistanceCondition; // 采用停止距离条件还是回环停止条件
 
         protected double servoMotionInitialAngle = 0.0; // 运动初始姿态角
-        protected bool servoMotionIfFindInitialAngle = true; // 是否寻找运动初始姿态角
+        protected bool servoMotionIfFindInitialAngle = false; // 是否寻找运动初始姿态角
         protected bool servoMotionIfRecorrectRotateAngle = false; // 是否矫正姿态角
         protected double servoMotionIgnoreJudgeSpan = 0.001; // 姿态角矫正忽略长度        
         protected double servoMotionJudgeStep = 0.003; // 姿态角矫正步长
@@ -107,8 +107,6 @@ namespace URServo
         protected double servoMotionVibratingCurrentAngle = 0.0; // 当前姿态相对改变角度
 
         protected double servoMotionTargetForceKeep = 0.0; // 目标保持力
-
-        protected double[] servoMotionGain = new double[3]; // 运动增益
 
         protected List<double[]> servoMotionRecordDatas = new List<double[]>(15000); // 运动过程数据记录
         #endregion
@@ -191,7 +189,7 @@ namespace URServo
                                                                     double TargetForceKeep,
                                                                     bool IfRotate,
                                                                     double UpAngle,
-                                                                    bool IfFindInitialAngle = true,
+                                                                    bool IfFindInitialAngle = false,
                                                                     bool IfRecorrectRotateAngle = false,
                                                                     double IgnoreJudgeSpan = 0.001,
                                                                     double JudgeStep = 0.003,
@@ -344,10 +342,9 @@ namespace URServo
             servoMotionJudgeStep = JudgeStep;
             servoMotionOverlappingRate = OverlappingRate;
 
-            // 设定运动增益
-            servoMotionGain[0] = ControlPeriod;
-            servoMotionGain[1] = LookAheadTime;
-            servoMotionGain[2] = Gain;
+            // 设置伺服参数并重写下位机控制程序
+            SetServoMotionParameters(ControlPeriod, LookAheadTime, Gain);
+            internalProcessor.WriteStringToControlCode(ControlPeriod, LookAheadTime, Gain);
 
             // 准备查找初始姿态角
             RotateAboutInitialAngle();
@@ -444,10 +441,6 @@ namespace URServo
             servoMotionVibrateAngleIgnoreRegionBeyond = false;
             servoMotionMeanAngleChange = 0.0;
             servoMotionAccmuErr = 0.0;
-
-            // 设置伺服参数并重写下位机控制程序
-            SetServoMotionParameters(servoMotionGain[0], servoMotionGain[1], servoMotionGain[2]);
-            internalProcessor.WriteStringToControlCode(servoMotionGain[0], servoMotionGain[1], servoMotionGain[2]);
 
             // 打开伺服模块时对一般逻辑的处理
             internalProcessor.ServoSwitchMode(true);
@@ -681,7 +674,7 @@ namespace URServo
                                                                                                      URMath.AxisAngle2Quatnum(new double[] { servoMotionBeginTcpPosition[3], servoMotionBeginTcpPosition[4], servoMotionBeginTcpPosition[5] }), 
                                                                                                      URMath.AxisAngle2Quatnum(new double[] { predictAngle * servoMotionInitialVibratingDirectionArrayAtBase[0], predictAngle * servoMotionInitialVibratingDirectionArrayAtBase[1], predictAngle * servoMotionInitialVibratingDirectionArrayAtBase[2] }) }));
 
-            if (servoMotionVibrateAngleIgnoreRegionBeyond)
+            if (servoMotionIfAttitudeChange && servoMotionVibrateAngleIgnoreRegionBeyond)
             {
                 nextTcpPosition[3] = nextPosture[0];
                 nextTcpPosition[4] = nextPosture[1];
