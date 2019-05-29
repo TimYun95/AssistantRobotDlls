@@ -81,6 +81,9 @@
     <Reference Include="MotionAgent">
       <HintPath>..\MotionAgent\bin\x64\Release\MotionAgent.dll</HintPath>
     </Reference>
+    <Reference Include="PipeAgent">
+      <HintPath>..\PipeAgent\bin\x64\Release\PipeAgent.dll</HintPath>
+    </Reference>
     <Reference Include="ResourceAgent">
       <HintPath>..\ResourceAgent\bin\x64\Release\ResourceAgent.dll</HintPath>
     </Reference>
