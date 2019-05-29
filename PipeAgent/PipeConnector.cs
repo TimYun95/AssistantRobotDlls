@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 //using System.Linq;
 //using System.Text;
@@ -22,23 +23,28 @@ namespace PipeCommunication
         private static readonly object sendLocker = new object();
         protected const int sleepMsForQueueSend = 10;
 
-        protected bool ifSendEnabled = false;
-        protected bool ifRecieveEnabled = false;
+        protected bool ifSendEnabled = false; // 是否允许发送
+        protected bool ifRecieveEnabled = false; // 是否允许接收
 
         protected Task sendTask;
         protected CancellationTokenSource sendCancel;
         protected Task recieveTask;
         protected CancellationTokenSource recieveCancel;
 
-        public delegate void SendByteArray(); // 字节流传送委托
+        public delegate void SendByteArray(byte[] sendBytes); // 字节流传送委托
 
         /// <summary>
         /// 传送接收到的字节流
         /// </summary>
         public event SendByteArray OnSendByteRecieved;
 
-        #endregion
+        public delegate void SendVoid(); // 空传送委托
 
+        /// <summary>
+        /// 传送管道终止状态
+        /// </summary>
+        public event SendVoid OnSendPipeCrashed;
+        #endregion
 
         #region 方法
         /// <summary>
@@ -83,7 +89,11 @@ namespace PipeCommunication
         {
             lock (sendLocker)
             {
-                if (ifSendEnabled) sendQueue.Enqueue(bytes);
+                if (ifSendEnabled)
+                {
+                    if (sendQueue.Count < queueMaxLength) sendQueue.Enqueue(bytes);
+                    else Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Send queue is full.");
+                }
             }
         }
 
@@ -113,13 +123,22 @@ namespace PipeCommunication
 
                 if (dataBytes.Equals(null)) continue;
 
-                SendByteDatas(dataBytes);
+                try
+                {
+                    SendByteDatas(dataBytes);
+                }
+                catch (IOException ex)
+                {
+                    sendCancel.Cancel();
+                    Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe crashed when sending bytes.", ex);
+                }
             }
 
             ifSendEnabled = false;
+            recieveCancel.Cancel();
+
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End to send bytes at client side of pipe.");
         }
-
 
         /// <summary>
         /// 字节流接收任务
@@ -134,25 +153,22 @@ namespace PipeCommunication
             {
                 if (cancelFlag.IsCancellationRequested) break;
 
-                Thread.Sleep(sleepMsForQueueSend);
+                byte[] dataBytes = ReadByteDatas();
 
-                byte[] dataBytes = null;
-                lock (sendLocker)
+                if (dataBytes.Length < 1)
                 {
-                    if (sendQueue.Count > 0)
-                    {
-                        dataBytes = sendQueue.Dequeue();
-                    }
+                    Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe crashed when recieving bytes.");
+                    Thread.Sleep(sleepMsForQueueSend);
                 }
-
-                if (dataBytes.Equals(null)) continue;
-
-                SendByteDatas(dataBytes);
+                else OnSendByteRecieved(dataBytes);
             }
 
             ifRecieveEnabled = false;
+            OnSendPipeCrashed();
+
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End to recieve bytes at client side of pipe.");
         }
+
         #endregion
     }
 }
