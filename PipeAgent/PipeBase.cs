@@ -70,7 +70,7 @@ namespace PipeCommunication
         /// <summary>
         /// 关闭管道连接
         /// </summary>
-        public void PipeOver()
+        protected void PipeOver()
         {
             innerPipe.Close();
         }

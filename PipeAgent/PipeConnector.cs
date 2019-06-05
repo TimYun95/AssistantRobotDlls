@@ -162,6 +162,7 @@ namespace PipeCommunication
             }
 
             ifRecieveEnabled = false;
+            PipeOver();
             OnSendPipeCrashed();
 
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End to recieve bytes at client side of pipe.");
