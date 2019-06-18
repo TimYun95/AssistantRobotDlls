@@ -50,10 +50,7 @@ namespace PipeCommunication
         /// </summary>
         /// <param name="pipeName">管道名称</param>
         public PipeConnector(string pipeName) :
-            base(pipeName)
-        {
-            sendQueue.Clear();
-        }
+            base(pipeName) { }
 
         /// <summary>
         /// 连接管道
