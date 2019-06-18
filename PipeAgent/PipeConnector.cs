@@ -116,7 +116,7 @@ namespace PipeCommunication
                     }
                 }
 
-                if (dataBytes.Equals(null)) continue;
+                if (Object.Equals(dataBytes, null)) continue;
 
                 try
                 {
