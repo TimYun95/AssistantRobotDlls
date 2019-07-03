@@ -12,22 +12,22 @@ namespace ResourceCheck
     public class ResourceChecker
     {
         #region 字段
-        private const string controllerCodePath = "ControllerCode\\";
-        private const string controllerCodeFilePath = "ControllerCode\\ControllerCode.txt";
+        private static readonly string controllerCodePath = AppDomain.CurrentDomain.BaseDirectory + "ControllerCode\\";
+        private static readonly string controllerCodeFilePath = AppDomain.CurrentDomain.BaseDirectory + "ControllerCode\\ControllerCode.txt";
 
-        private const string dataBasePath = "DataBase\\";
-        private const string dataBaseFilePath = "DataBase\\ToolDataBase.mdf";
+        private static readonly string dataBasePath = AppDomain.CurrentDomain.BaseDirectory + "DataBase\\";
+        private static readonly string dataBaseFilePath = AppDomain.CurrentDomain.BaseDirectory + "DataBase\\ToolDataBase.mdf";
 
-        private const string logPath = "Log\\";
-        private const string logHistoryPath = "Log\\History\\";
-        private const string logDataPath = "Log\\Data\\";
-        private const string logConfFilePath = "Log\\Log.config";
+        private static readonly string logPath = AppDomain.CurrentDomain.BaseDirectory + "Log\\";
+        private static readonly string logHistoryPath = AppDomain.CurrentDomain.BaseDirectory + "Log\\History\\";
+        private static readonly string logDataPath = AppDomain.CurrentDomain.BaseDirectory + "Log\\Data\\";
+        private static readonly string logConfFilePath = AppDomain.CurrentDomain.BaseDirectory + "Log\\Log.config";
 
-        private const string confPath = "Conf\\";
-        private const string confSavePath = "Conf\\Saves\\";
-        private const string defaultGalactophoreConfPath = "Conf\\Saves\\GalactophoreDetection\\";
+        private static readonly string confPath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\";
+        private static readonly string confSavePath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\Saves\\";
+        private static readonly string defaultGalactophoreConfPath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\Saves\\GalactophoreDetection\\";
 
-        private const string keyDataPath = "SavedKeyDatas\\";
+        private static readonly string keyDataPath = AppDomain.CurrentDomain.BaseDirectory + "SavedKeyDatas\\";
         #endregion
 
         #region 方法

@@ -10,7 +10,7 @@ namespace URCommand
     public class URScriptBase
     {
         #region 字段
-        protected string controllerCodePath = Environment.CurrentDirectory + "\\ControllerCode\\ControllerCode.txt"; // 下位机实时控制代码保存地址
+        protected string controllerCodePath = AppDomain.CurrentDomain.BaseDirectory + "ControllerCode\\ControllerCode.txt"; // 下位机实时控制代码保存地址
         #endregion
 
         #region 属性

@@ -28,8 +28,8 @@ namespace XMLConnection
         /// <param name="reSaveFileDirectory">转存Xml文件所在的该级目录</param>
         /// <param name="DefaultConfigurations">默认参数配置</param>
         public XMLConnector(string fileName, string reSaveFileDirectory, Dictionary<string, string[]> DefaultConfigurations) :
-            base(Convert.ToString(System.AppDomain.CurrentDomain.BaseDirectory) + fileDirectory + fileName,
-                    Convert.ToString(System.AppDomain.CurrentDomain.BaseDirectory) + fileDirectory + reSaveDirectory + reSaveFileDirectory,
+            base(Convert.ToString(AppDomain.CurrentDomain.BaseDirectory) + fileDirectory + fileName,
+                    Convert.ToString(AppDomain.CurrentDomain.BaseDirectory) + fileDirectory + reSaveDirectory + reSaveFileDirectory,
                     DefaultConfigurations) { }
 
         /// <summary>

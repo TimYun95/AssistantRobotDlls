@@ -79,7 +79,7 @@ namespace LogPrinter
         /// <param name="Mass">末端重量</param>
         public static void DataPrinting(List<double[]> PrintDatas, bool? IsReverse = null, double[] TcpCordinate = null, double? Mass = null)
         {
-            string dataFullPath = Convert.ToString(System.AppDomain.CurrentDomain.BaseDirectory) + dataPath + DateTime.Now.ToString("yyyy-MM-dd") + "\\";
+            string dataFullPath = Convert.ToString(AppDomain.CurrentDomain.BaseDirectory) + dataPath + DateTime.Now.ToString("yyyy-MM-dd") + "\\";
             if (!Directory.Exists(dataFullPath))
             {
                 Directory.CreateDirectory(dataFullPath);

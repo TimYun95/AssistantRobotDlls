@@ -12,7 +12,7 @@ namespace SQLServerConnection
     public class SQLServerExchangeBase
     {
         #region 字段
-        protected string dataBaseDocument = Environment.CurrentDirectory + "\\DataBase\\ToolDataBase.mdf"; // 数据库文件位置
+        protected string dataBaseDocument = AppDomain.CurrentDomain.BaseDirectory + "DataBase\\ToolDataBase.mdf"; // 数据库文件位置
 
         public delegate void SendVoid(); // 无参数发送委托
 
