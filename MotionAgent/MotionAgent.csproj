@@ -68,16 +68,14 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\LogAgent\bin\x64\Release\log4net.dll</HintPath>
+    <Reference Include="log4net">
+      <HintPath>..\LogAgent\bin\Release\log4net.dll</HintPath>
     </Reference>
-    <Reference Include="LogAgent, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\LogAgent\bin\x64\Release\LogAgent.dll</HintPath>
+    <Reference Include="LogAgent">
+      <HintPath>..\LogAgent\bin\Release\LogAgent.dll</HintPath>
     </Reference>
     <Reference Include="MathAgent">
-      <HintPath>..\MathAgent\bin\x64\Release\MathAgent.dll</HintPath>
+      <HintPath>..\MathAgent\bin\Release\MathAgent.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -86,13 +84,11 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="URAgent, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\URAgent\bin\x64\Release\URAgent.dll</HintPath>
+    <Reference Include="URAgent">
+      <HintPath>..\URAgent\bin\Release\URAgent.dll</HintPath>
     </Reference>
-    <Reference Include="XMLAgent, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\XMLAgent\bin\x64\Release\XMLAgent.dll</HintPath>
+    <Reference Include="XMLAgent">
+      <HintPath>..\XMLAgent\bin\Release\XMLAgent.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

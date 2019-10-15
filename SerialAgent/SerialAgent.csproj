@@ -71,13 +71,11 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\LogAgent\bin\x64\Release\log4net.dll</HintPath>
+    <Reference Include="log4net">
+      <HintPath>..\LogAgent\bin\Release\log4net.dll</HintPath>
     </Reference>
-    <Reference Include="LogAgent, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\LogAgent\bin\x64\Release\LogAgent.dll</HintPath>
+    <Reference Include="LogAgent">
+      <HintPath>..\LogAgent\bin\Release\LogAgent.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

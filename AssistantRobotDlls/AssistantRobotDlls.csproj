@@ -67,28 +67,28 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DataBaseAgent">
-      <HintPath>..\DataBaseAgent\bin\x64\Release\DataBaseAgent.dll</HintPath>
+      <HintPath>..\DataBaseAgent\bin\Release\DataBaseAgent.dll</HintPath>
     </Reference>
     <Reference Include="log4net">
-      <HintPath>..\LogAgent\bin\x64\Release\log4net.dll</HintPath>
+      <HintPath>..\LogAgent\bin\Release\log4net.dll</HintPath>
     </Reference>
     <Reference Include="LogAgent">
-      <HintPath>..\LogAgent\bin\x64\Release\LogAgent.dll</HintPath>
+      <HintPath>..\LogAgent\bin\Release\LogAgent.dll</HintPath>
     </Reference>
     <Reference Include="MathAgent">
-      <HintPath>..\MathAgent\bin\x64\Release\MathAgent.dll</HintPath>
+      <HintPath>..\MathAgent\bin\Release\MathAgent.dll</HintPath>
     </Reference>
     <Reference Include="MotionAgent">
-      <HintPath>..\MotionAgent\bin\x64\Release\MotionAgent.dll</HintPath>
+      <HintPath>..\MotionAgent\bin\Release\MotionAgent.dll</HintPath>
     </Reference>
     <Reference Include="PipeAgent">
-      <HintPath>..\PipeAgent\bin\x64\Release\PipeAgent.dll</HintPath>
+      <HintPath>..\PipeAgent\bin\Release\PipeAgent.dll</HintPath>
     </Reference>
     <Reference Include="ResourceAgent">
-      <HintPath>..\ResourceAgent\bin\x64\Release\ResourceAgent.dll</HintPath>
+      <HintPath>..\ResourceAgent\bin\Release\ResourceAgent.dll</HintPath>
     </Reference>
     <Reference Include="SerialAgent">
-      <HintPath>..\SerialAgent\bin\x64\Release\SerialAgent.dll</HintPath>
+      <HintPath>..\SerialAgent\bin\Release\SerialAgent.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -98,10 +98,10 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="URAgent">
-      <HintPath>..\URAgent\bin\x64\Release\URAgent.dll</HintPath>
+      <HintPath>..\URAgent\bin\Release\URAgent.dll</HintPath>
     </Reference>
     <Reference Include="XMLAgent">
-      <HintPath>..\XMLAgent\bin\x64\Release\XMLAgent.dll</HintPath>
+      <HintPath>..\XMLAgent\bin\Release\XMLAgent.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
