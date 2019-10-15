@@ -17,7 +17,7 @@ namespace PipeCommunication
         #region 字段
         protected const int queueMaxLength = 10;
 
-        protected Queue<byte[]> sendQueue;
+        protected Queue<byte[]> sendQueue = new Queue<byte[]>(queueMaxLength);
         private static readonly object sendLocker = new object();
         protected const int sleepMsForQueueSend = 10;
 
@@ -48,9 +48,8 @@ namespace PipeCommunication
         /// <summary>
         /// 构造函数
         /// </summary>
-        /// <param name="pipeName">管道名称</param>
-        public PipeConnector(string pipeName) :
-            base(pipeName) { }
+        public PipeConnector() :
+            base() { }
 
         /// <summary>
         /// 连接管道
@@ -127,6 +126,11 @@ namespace PipeCommunication
                     sendCancel.Cancel();
                     Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe crashed when sending bytes.", ex);
                 }
+                catch (Exception ex)
+                {
+                    sendCancel.Cancel();
+                    Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe crashed when sending bytes, unknown error.", ex);
+                }
             }
 
             ifSendEnabled = false;
@@ -152,6 +156,8 @@ namespace PipeCommunication
 
                 if (dataBytes.Length < 1)
                 {
+                    sendCancel.Cancel();
+                    recieveCancel.Cancel();
                     Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe crashed when recieving bytes.");
                     Thread.Sleep(sleepMsForQueueSend);
                 }
@@ -159,6 +165,8 @@ namespace PipeCommunication
             }
 
             ifRecieveEnabled = false;
+
+            sendTask.Wait();
             PipeOver();
             OnSendPipeCrashed();
 

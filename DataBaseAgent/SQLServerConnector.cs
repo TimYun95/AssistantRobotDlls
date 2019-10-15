@@ -13,6 +13,15 @@ namespace SQLServerConnection
     {
         #region 方法
         /// <summary>
+        /// 查找当前工具数目
+        /// </summary>
+        /// <returns>返回当前工具数目</returns>
+        public virtual int GetExitToolNumber()
+        {
+            return AskCurrentItemLength("dbo.ToolBase");
+        }
+
+        /// <summary>
         /// 增加新工具
         /// </summary>
         /// <param name="AddInformation">新工具信息</param>

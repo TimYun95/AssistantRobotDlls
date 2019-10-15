@@ -13,7 +13,8 @@ namespace PipeCommunication
     public class PipeBase
     {
         #region 字段
-        protected NamedPipeClientStream innerPipe;
+        protected NamedPipeClientStream innerPipeWriteToServer;
+        protected NamedPipeClientStream innerPipeReadFromServer;
 
         #endregion
 
@@ -21,10 +22,10 @@ namespace PipeCommunication
         /// <summary>
         /// 构造函数
         /// </summary>
-        /// <param name="pipeName">管道名称</param>
-        public PipeBase(string pipeName)
+        public PipeBase()
         {
-            innerPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.None);
+            innerPipeWriteToServer = new NamedPipeClientStream(".", "pipeWriteToServer", PipeDirection.Out);
+            innerPipeReadFromServer = new NamedPipeClientStream(".", "pipeReadFromServer", PipeDirection.In);
         }
 
         /// <summary>
@@ -35,11 +36,17 @@ namespace PipeCommunication
         {
             try
             {
-                innerPipe.Connect(200);
+                innerPipeWriteToServer.Connect(250);
+                innerPipeReadFromServer.Connect(250);
             }
             catch (TimeoutException ex)
             {
                 Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe can not be connected.", ex);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe can not be connected, unknown error.", ex);
                 return false;
             }
             return true;
@@ -51,8 +58,8 @@ namespace PipeCommunication
         /// <param name="datas">字节流</param>
         protected void SendByteDatas(byte[] datas)
         {
-            innerPipe.Write(datas, 0, datas.Length);
-            innerPipe.Flush();
+            innerPipeWriteToServer.Write(datas, 0, datas.Length);
+            innerPipeWriteToServer.Flush();
         }
 
         /// <summary>
@@ -62,7 +69,7 @@ namespace PipeCommunication
         protected byte[] ReadByteDatas()
         {
             byte[] buf = new byte[128];
-            int length = innerPipe.Read(buf, 0, 128);
+            int length = innerPipeReadFromServer.Read(buf, 0, 128);
 
             return buf.Take(length).ToArray();
         }
@@ -72,7 +79,8 @@ namespace PipeCommunication
         /// </summary>
         protected void PipeOver()
         {
-            innerPipe.Close();
+            innerPipeReadFromServer.Close();
+            innerPipeWriteToServer.Close();
         }
         #endregion
     }
