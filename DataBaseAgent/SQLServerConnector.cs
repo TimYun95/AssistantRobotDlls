@@ -16,7 +16,7 @@ namespace SQLServerConnection
         /// 查找当前工具数目
         /// </summary>
         /// <returns>返回当前工具数目</returns>
-        public virtual int GetExitToolNumber()
+        public virtual int GetExistToolNumber()
         {
             return AskCurrentItemLength("dbo.ToolBase");
         }

@@ -144,6 +144,8 @@ namespace SensorAgent
 
         protected static void FetchDatasFromBuffer()
         {
+            if (ComDevice.BytesToRead < 12)
+                return;
             byte[] readBuffer = new byte[12];
             ComDevice.Read(readBuffer, 0, 12);
 
@@ -159,6 +161,7 @@ namespace SensorAgent
                 int moreLen = headIndex;
                 byte[] newBuffer = new byte[12];
                 readBuffer.Skip(headIndex).ToArray().CopyTo(newBuffer, 0);
+                while (ComDevice.BytesToRead < moreLen) ;
                 ComDevice.Read(newBuffer, 12 - headIndex, moreLen);
                 if (!CheckSum(newBuffer))
                 {

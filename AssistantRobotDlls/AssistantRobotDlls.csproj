@@ -88,6 +88,9 @@
     <Reference Include="ResourceAgent">
       <HintPath>..\ResourceAgent\bin\Release\ResourceAgent.dll</HintPath>
     </Reference>
+    <Reference Include="SensorAgent">
+      <HintPath>..\SensorAgent\bin\Release\SensorAgent.dll</HintPath>
+    </Reference>
     <Reference Include="SerialAgent">
       <HintPath>..\SerialAgent\bin\Release\SerialAgent.dll</HintPath>
     </Reference>
