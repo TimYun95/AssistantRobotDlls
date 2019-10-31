@@ -20,7 +20,7 @@ namespace SensorAgent
         protected bool insideLoopCrash = false;
         protected bool isAlsoInsideTimer = false;
 
-        protected double[] infos = new double[10];
+        protected double[] infos = new double[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         private static readonly object infoLocker = new object();
 
         protected System.Timers.Timer sendTimer = new System.Timers.Timer();
@@ -32,6 +32,12 @@ namespace SensorAgent
         /// </summary>
         public event SendDoubleArray OnSendSenorDatas;
 
+        protected bool ifUseGyroSensor = true;
+        protected bool ifUseInfraredSensor = true;
+        protected bool ifUsePressSensor = true;
+
+        protected int sendDataPeriod = 56;
+        protected int getDataPeriod = 25;
         #endregion
 
         #region 方法
@@ -41,12 +47,16 @@ namespace SensorAgent
         /// <returns>返回结果</returns>
         public bool CheckIfDevicesAllExist()
         {
-            //ImportInfraredFunctions.AskDeviceExist() &&
-            //    ImportGyroFunctions.AskDeviceExist() &&
-            if (
-                ImportPressFunctions.AskDeviceExist())
-                return true;
-            else return false;
+            if (ifUseInfraredSensor && !ImportInfraredFunctions.AskDeviceExist())
+                return false;
+            if (ifUseGyroSensor && !ImportGyroFunctions.AskDeviceExist())
+                return false;
+            if (ifUsePressSensor && !ImportPressFunctions.AskDeviceExist())
+                return false;
+            if (!ifUseInfraredSensor && !ifUseGyroSensor && !ifUsePressSensor)
+                return false;
+
+            return true;
         }
 
         /// <summary>
@@ -55,34 +65,51 @@ namespace SensorAgent
         /// <returns>返回连接结果</returns>
         public bool ConnectDevices()
         {
+            // 设备已经连接，直接返回true
             if (isDeviceConnected) return true;
 
+            // 设备不存在，直接返回false
             bool existResult = CheckIfDevicesAllExist();
             if (!existResult) return false;
 
-            bool connectedResult = ImportPressFunctions.ConnectToSensor();
-            if (!connectedResult) return false;
+            // 连接Infrared
+            bool[] connectedResult = { false, false, false };
+            if (ifUseInfraredSensor)
+                connectedResult[0] = ImportInfraredFunctions.ConnectToSensor();
 
-            //bool connectedResult = ImportInfraredFunctions.ConnectToSensor();
-            //if (!connectedResult) return false;
+            // 连接Gyro
+            if (ifUseGyroSensor)
+                connectedResult[1] = ImportGyroFunctions.ConnectToSensor();
 
-            //connectedResult = ImportGyroFunctions.ConnectToSensor();
-            //if (!connectedResult)
-            //{
-            //    if (!ImportInfraredFunctions.DisconnectFromSensor())
-            //        Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when connect to devices.");
-            //    return false;
-            //}
+            // 连接Press
+            if (ifUsePressSensor)
+                connectedResult[2] = ImportPressFunctions.ConnectToSensor();
 
-            //connectedResult = ImportPressFunctions.ConnectToSensor();
-            //if (!connectedResult)
-            //{
-            //    if (!ImportInfraredFunctions.DisconnectFromSensor() || !ImportGyroFunctions.DisconnectFromSensor())
-            //        Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when connect to devices.");
-            //    return false;
-            //}
+            // 处理Press连接结果
+            bool connectReceipt = true;
+            if (ifUsePressSensor && !connectedResult[2])
+            {
+                Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when connect to press sensor.");
+                connectReceipt = false;
+            }
 
-            dataTimer.Interval = 25;
+            // 处理Gyro连接结果
+            if (ifUseGyroSensor && !connectedResult[1])
+            {
+                Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when connect to gyro sensor.");
+                connectReceipt = false;
+            }
+
+            // 处理Infrared连接结果
+            if (ifUseInfraredSensor && !connectedResult[0])
+            {
+                Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when connect to infrared sensor.");
+                connectReceipt = false;
+            }
+
+            if (!connectReceipt) return false;
+
+            dataTimer.Interval = getDataPeriod;
             dataTimer.AutoReset = true;
             dataTimer.Elapsed += new System.Timers.ElapsedEventHandler(RefreshInfoElapsed);
             dataTimer.Start();
@@ -91,7 +118,7 @@ namespace SensorAgent
             Task.Run(new Action(() =>
             {
                 Thread.Sleep(200);
-                sendTimer.Interval = 56;
+                sendTimer.Interval = sendDataPeriod;
                 sendTimer.AutoReset = true;
                 sendTimer.Elapsed += new System.Timers.ElapsedEventHandler(SendInfoElapsed);
                 sendTimer.Start();
@@ -109,21 +136,49 @@ namespace SensorAgent
         {
             if (!isDeviceConnected) return true;
 
-            bool killResult = ImportPressFunctions.DisconnectFromSensor();
-            if (!killResult) return false;
-
-            //bool killResult = ImportInfraredFunctions.DisconnectFromSensor();
-            //if (!killResult) return false;
-
-            //killResult = ImportGyroFunctions.DisconnectFromSensor();
-            //if (!killResult) return false;
-
-            //killResult = ImportPressFunctions.DisconnectFromSensor();
-            //if (!killResult) return false;
-
+            int timeOutCount = 0;
             dataTimer.Stop();
+            while (isInsideTimer && timeOutCount < 10)
+                timeOutCount++;
+            if (timeOutCount >= 10)
+                return false;
+            timeOutCount = 0;
+            Thread.Sleep(100);
+
             insideLoopCrash = true;
+
             sendTimer.Stop();
+            while (isAlsoInsideTimer && timeOutCount < 10)
+                timeOutCount++;
+            if (timeOutCount >= 10)
+                return false;
+            timeOutCount = 0;
+            Thread.Sleep(100);
+
+            bool[] killResult = { false, false, false };
+
+            if (ifUseInfraredSensor)
+            {
+                killResult[0] = ImportInfraredFunctions.DisconnectFromSensor();
+                Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when disconnect from infrared sensor.");
+            }
+
+            if (ifUseGyroSensor)
+            {
+                killResult[1] = ImportGyroFunctions.DisconnectFromSensor();
+                Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when disconnect from gyro sensor.");
+            }
+
+            if (ifUsePressSensor)
+            {
+                killResult[2] = ImportPressFunctions.DisconnectFromSensor();
+                Logger.HistoryPrinting(Logger.Level.ERROR, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Exception when disconnect from press sensor.");
+            }
+
+            if (ifUseInfraredSensor && !killResult[0]) return false;
+            if (ifUseGyroSensor && !killResult[1]) return false;
+            if (ifUsePressSensor && !killResult[2]) return false;
+
             isDeviceConnected = false;
             return true;
         }
@@ -136,12 +191,13 @@ namespace SensorAgent
             if (isInsideTimer) return;
             isInsideTimer = true;
 
-            //double[] infoFromInfrared = ImportInfraredFunctions.GetInfo();
-            //double[] infoFromGyro = ImportGyroFunctions.GetInfo();
-            double[] infoFromPress = ImportPressFunctions.GetInfo();
+            double[] infoFromInfrared = ifUseInfraredSensor ? ImportInfraredFunctions.GetInfo() : null;
+            double[] infoFromGyro = ifUseGyroSensor ? ImportGyroFunctions.GetInfo() : null;
+            double[] infoFromPress = ifUsePressSensor ? ImportPressFunctions.GetInfo() : null;
 
-            if (infoFromPress == null)
-                //if (infoFromInfrared == null || infoFromGyro == null || infoFromPress == null)
+            if ((ifUseInfraredSensor && infoFromInfrared == null) ||
+                (ifUseGyroSensor && infoFromGyro == null) ||
+                (ifUsePressSensor && infoFromPress == null))
             {
                 count++;
                 isInsideTimer = false;
@@ -161,16 +217,27 @@ namespace SensorAgent
 
             lock (infoLocker)
             {
-                //infos[0] = infoFromInfrared[0];
-                //infos[1] = infoFromInfrared[1];
-                //infos[2] = infoFromGyro[0];
-                //infos[3] = infoFromGyro[1];
-                //infos[4] = infoFromGyro[2];
-                //infos[5] = infoFromGyro[3];
-                infos[6] = infoFromPress[0];
-                infos[7] = infoFromPress[1];
-                infos[8] = infoFromPress[2];
-                infos[9] = infoFromPress[3];
+                if (ifUseInfraredSensor)
+                {
+                    infos[0] = infoFromInfrared[0];
+                    infos[1] = infoFromInfrared[1];
+                }
+
+                if (ifUseGyroSensor)
+                {
+                    infos[2] = infoFromGyro[0];
+                    infos[3] = infoFromGyro[1];
+                    infos[4] = infoFromGyro[2];
+                    infos[5] = infoFromGyro[3];
+                }
+
+                if (ifUsePressSensor)
+                {
+                    infos[6] = infoFromPress[0];
+                    infos[7] = infoFromPress[1];
+                    infos[8] = infoFromPress[2];
+                    infos[9] = infoFromPress[3];
+                }
             }
 
             isInsideTimer = false;
@@ -201,10 +268,6 @@ namespace SensorAgent
 
             isAlsoInsideTimer = false;
         }
-
-
-
-
 
         #endregion
     }
