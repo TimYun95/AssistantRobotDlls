@@ -267,6 +267,90 @@ namespace SQLServerConnection
         }
 
         /// <summary>
+        /// 刷新相应工具号工具的完整力信息
+        /// </summary>
+        /// <param name="ToolNumber">要刷新的工具号</param>
+        /// <param name="ForceContent">要使用的力信息</param>
+        /// <param name="TableNum">完整力信号的表格标号</param>
+        /// <returns>刷新的结果</returns>
+        public virtual bool RefreshEntireForceTabels(int ToolNumber, double[,] ForceContent, int TableNum)
+        {
+            List<string> fx = new List<string>(600);
+            List<string> fy = new List<string>(600);
+            List<string> fz = new List<string>(600);
+            List<string> tx = new List<string>(600);
+            List<string> ty = new List<string>(600);
+            List<string> tz = new List<string>(600);
+
+            for (int i = 0; i < 540; i++)
+            {
+                fx.Add(ForceContent[0, i].ToString("0.00"));
+                fy.Add(ForceContent[1, i].ToString("0.00"));
+                fz.Add(ForceContent[2, i].ToString("0.00"));
+                tx.Add(ForceContent[3, i].ToString("0.000"));
+                ty.Add(ForceContent[4, i].ToString("0.000"));
+                tz.Add(ForceContent[5, i].ToString("0.000"));
+            }
+
+            string tableName = "";
+            switch (TableNum)
+            {
+                case 1: tableName = "dbo.EntireFlangeForce0001To0540"; break;
+                case 2: tableName = "dbo.EntireFlangeForce0541To1080"; break;
+                case 3: tableName = "dbo.EntireFlangeForce1081To1620"; break;
+                case 4: tableName = "dbo.EntireFlangeForce1621To2160"; break;
+                case 5: tableName = "dbo.EntireFlangeForce2161To2700"; break;
+                case 6: tableName = "dbo.EntireFlangeForce2701To3240"; break;
+                case 7: tableName = "dbo.EntireFlangeForce3241To3780"; break;
+                case 8: tableName = "dbo.EntireFlangeForce3781To4320"; break;
+                case 9: tableName = "dbo.EntireFlangeForce4321To4860"; break;
+                case 10: tableName = "dbo.EntireFlangeForce4861To5400"; break;
+                case 11: tableName = "dbo.EntireFlangeForce5401To5940"; break;
+                case 12: tableName = "dbo.EntireFlangeForce5941To6480"; break;
+                case 13: tableName = "dbo.EntireFlangeForce6481To7020"; break;
+                case 14: tableName = "dbo.EntireFlangeForce7021To7560"; break;
+                case 15: tableName = "dbo.EntireFlangeForce7561To8100"; break;
+                default: return false;
+            }
+
+            // 查找条目是否存在
+            object[] getObject = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+            if (getObject.Length >= 1) // 有工具号对应的力信息，要先删除条目
+            {
+                // 删除相关条目
+                if (!DeleteItemByToolNumber(tableName, ToolNumber))
+                    return false;
+            }
+
+            // 增加条目
+            int usedTableRowNumber = AskCurrentItemLength(tableName) + 1;
+
+            bool endResult = true;
+            for (int i = 0; i < 6; i++)
+            {
+                string content = "(\'" + (usedTableRowNumber + i).ToString("0") + "\'";
+                content += ", \'" + ToolNumber.ToString("0") + "\', \'" + i.ToString("0") + "\'";
+
+                switch (i)
+                {
+                    case 0: foreach (string item in fx) content += ", \'" + item + "\'"; break;
+                    case 1: foreach (string item in fy) content += ", \'" + item + "\'"; break;
+                    case 2: foreach (string item in fz) content += ", \'" + item + "\'"; break;
+                    case 3: foreach (string item in tx) content += ", \'" + item + "\'"; break;
+                    case 4: foreach (string item in ty) content += ", \'" + item + "\'"; break;
+                    case 5: foreach (string item in tz) content += ", \'" + item + "\'"; break;
+                    default: return false;
+                }
+                content += ")";
+                string addingStr = "INSERT INTO " + tableName + " VALUES " + content;
+                endResult = SendNoReplyCommandToDataBase(addingStr);
+
+                if (!endResult) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 查询相应工具的基本工具信息
         /// </summary>
         /// <param name="ToolNumber">工具号</param>
@@ -337,7 +421,7 @@ namespace SQLServerConnection
             object[] recievedTy = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueY WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
             object[] recievedTz = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueZ WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
 
-            if (recievedFx.Length<1 || recievedFy.Length<1 || recievedFz.Length<1 || recievedTx.Length<1 || recievedTy.Length<1 || recievedTz.Length<1)
+            if (recievedFx.Length < 1 || recievedFy.Length < 1 || recievedFz.Length < 1 || recievedTx.Length < 1 || recievedTy.Length < 1 || recievedTz.Length < 1)
             {
                 return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
             }

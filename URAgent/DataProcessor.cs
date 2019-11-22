@@ -175,6 +175,8 @@ namespace URCommunication
         public delegate void SendDoubleMatrix(double[,] Datas); // double二位数组发送委托
         public event SendShort OnSendPreciseCalibrationProcess; // 发送力信号标定过程
         public event SendDoubleMatrix OnSendPreciseCalibrationDatas; // 发送力信号标定数据
+        public event SendShort OnSendEntireCalibrationProcess; // 发送完整力信号标定过程
+        public event SendDoubleMatrix OnSendEntireCalibrationDatas; // 发送完整力信号标定数据
 
         protected bool ifOpenSingularCheck = true; // 是否打开奇异点检查
         protected bool ifNearSingularPoint = false; // 是否临近奇异点
@@ -1497,6 +1499,8 @@ namespace URCommunication
                     {
                         double[] toolYAxis = YDirectionOfTcpAtBaseReference(ToolPosition);
                         double angleWithXAxis = (Math.Abs(toolYAxis[2]) > 1.0) ? Math.Asin((double)Math.Sign(toolYAxis[2])) : Math.Asin(toolYAxis[2]);
+                        if (!commandSender.IfHanged) angleWithXAxis = -angleWithXAxis;
+                        
                         int halfNum = (ModifiedParameter.GetLength(1) - 1) / 2;
                         double step = maxAngleRange / (double)halfNum;
 
@@ -1585,6 +1589,19 @@ namespace URCommunication
                         {
                             noGravityForce[i] = OriginalForce[i] - (ModifiedParameter[i, lowBound] * (1.0 - proportion) + ModifiedParameter[i, upBound] * proportion);
                         }
+
+                        return (double[])noGravityForce.Clone();
+                    }
+                case ForceModifiedMode.ProbeWhole:
+                    {
+
+
+
+
+
+                        double[] noGravityForce = new double[6];
+
+
 
                         return (double[])noGravityForce.Clone();
                     }
@@ -2001,6 +2018,124 @@ namespace URCommunication
                 OnSendPreciseCalibrationProcess((short)100);
             }));
         }
+
+        /// <summary>
+        /// 探头完整力标定
+        /// </summary>
+        /// <param name="InitialPosition">进行力清零的初始位置</param>
+        /// <param name="IsZeroed">是否已经力清零</param>
+        public virtual void EntireForceCalibrationProbe(double[] InitialPosition, bool IsZeroed = true)
+        {
+            Task.Run(new Action(() =>
+            {
+                if (!IsZeroed)
+                {
+                    // 先移动到初始位置
+                    SendURCommanderMoveJ(InitialPosition, 0.5, 0.4);
+                    Thread.Sleep(800);
+                    while (ProgramState == 2.0)
+                    {
+                        Thread.Sleep(200);
+                    }
+
+                    // 等待机械臂稳定
+                    Thread.Sleep(1000);
+
+                    // 重置力传感器
+                    SetOPTOBias(true);
+                    Thread.Sleep(800);
+                }
+
+                Thread.Sleep(1000);
+                // 开始循环采集
+                for (int loop = 1; loop < 16; loop++)
+                {
+                    // 初始化数据容器
+                    double[,] forceRecord = new double[6, 360 / 2 * 3];
+
+                    // 起始计量位置
+                    double[] jointPos = (double[])InitialPosition.Clone();
+
+                    for (int subLoop = 1; subLoop < 4; subLoop++)
+                    {
+                        jointPos = (double[])InitialPosition.Clone();
+                        jointPos[3] -= (3 * (loop - 1) + subLoop) * URMath.Deg2Rad(2);
+                        for (int num = 0; num < 180; num++)
+                        {
+                            jointPos[5] = InitialPosition[5] -  URMath.Deg2Rad(180) + URMath.Deg2Rad(2) * num;
+
+                            // 移动到测量位置
+                            SendURCommanderMoveJ(jointPos, 0.3, 0.2);
+
+                            #region 测量力信号
+                            Thread.Sleep(800);
+                            while (ProgramState == 2.0)
+                            {
+                                Thread.Sleep(200);
+                            }
+
+                            // 等待机械臂稳定
+                            Thread.Sleep(1000);
+
+                            // 测试力信号
+                            Thread.Sleep(500);
+                            double[][] getForces = ContinuousOriginalFlangeForces;
+                            int numForces = getForces.Count();
+                            double[] fx = new double[numForces];
+                            double[] fy = new double[numForces];
+                            double[] fz = new double[numForces];
+                            double[] tx = new double[numForces];
+                            double[] ty = new double[numForces];
+                            double[] tz = new double[numForces];
+                            for (int i = 0; i < numForces; i++)
+                            {
+                                fx[i] = getForces[i][0];
+                                fy[i] = getForces[i][1];
+                                fz[i] = getForces[i][2];
+                                tx[i] = getForces[i][3];
+                                ty[i] = getForces[i][4];
+                                tz[i] = getForces[i][5];
+                            }
+                            forceRecord[0, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fx, 4);
+                            forceRecord[1, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fy, 4);
+                            forceRecord[2, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fz, 4);
+                            forceRecord[3, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tx, 5);
+                            forceRecord[4, (subLoop - 1) * 180 + num] = URMath.GaussAverage(ty, 5);
+                            forceRecord[5, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tz, 5);
+                            #endregion
+
+                            OnSendEntireCalibrationProcess(Convert.ToInt16(Math.Round((3 * (loop - 1) + subLoop) * 6.0 / 180)));
+                        }
+
+                        #region 原路返回，防止绕线
+                        double[] tempJointPos = (double[])jointPos.Clone();
+                        for (int round = 1; round < 3; round++)
+                        {
+                            tempJointPos[5] = InitialPosition[5] + URMath.Deg2Rad(180) - URMath.Deg2Rad(120) * round;
+                            SendURCommanderMoveJ(tempJointPos, 0.3, 0.2);
+                            Thread.Sleep(800);
+                            while (ProgramState == 2.0)
+                            {
+                                Thread.Sleep(200);
+                            }
+                        }
+                        #endregion
+                    }
+
+                    // 回传数据
+                    OnSendEntireCalibrationDatas((double[,])forceRecord.Clone());
+                }
+
+                // 回到初始位置
+                SendURCommanderMoveJ(InitialPosition, 0.5, 0.4);
+                Thread.Sleep(800);
+                while (ProgramState == 2.0)
+                {
+                    Thread.Sleep(200);
+                }
+                OnSendEntireCalibrationProcess((short)100);
+            }));
+        }
         #endregion
 
         #region 伺服模块字段
@@ -2009,7 +2144,8 @@ namespace URCommunication
         public ServoTangentialTranslationWithForce servoTangentialTranslationWithForceModule; // 伺服切向运动模块(切向力驱动)
         public ServoFreeTranslation servoFreeTranslationModule; // 伺服平移运动模块
         public ServoSphereTranslation servoSphereTranslationModule; // 伺服球面运动模块
-        
+        public ServoTrackTranslation servoTrackTranslationModule; // 伺服跟踪运动模块
+
         public ServoTest servoTestModule; // 伺服运动测试模块
         #endregion
 
@@ -2024,7 +2160,8 @@ namespace URCommunication
             servoTangentialTranslationWithForceModule = new ServoTangentialTranslationWithForce(this, ifUse30004Port);
             servoFreeTranslationModule = new ServoFreeTranslation(this, ifUse30004Port);
             servoSphereTranslationModule = new ServoSphereTranslation(this, ifUse30004Port);
-            
+            servoTrackTranslationModule = new ServoTrackTranslation(this, ifUse30004Port);
+
             servoTestModule = new ServoTest(this, ifUse30004Port);
         }
 
@@ -2038,6 +2175,7 @@ namespace URCommunication
             servoTangentialTranslationWithForceModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
             servoFreeTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
             servoSphereTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
+            servoTrackTranslationModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces);
 
             servoTestModule.ServoMotionWork(positionsTcpActual, removeGravityTcpForces, speedsTcpActual);
         }

@@ -125,7 +125,7 @@ namespace URServo
         /// </summary>
         protected override double ServoMotionFlag
         {
-            get { return (double)ServoMotionModuleFlag.TangentialTranslation; }
+            get { return (double)ServoMotionModuleFlag.Test; }
         }
         #endregion
 

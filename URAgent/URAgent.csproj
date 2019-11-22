@@ -101,6 +101,7 @@
     <Compile Include="ServoTangentialTranslation.cs" />
     <Compile Include="ServoTangentialTranslationWithForce.cs" />
     <Compile Include="ServoTest.cs" />
+    <Compile Include="ServoTrackTranslation.cs" />
     <Compile Include="TCPBase.cs" />
     <Compile Include="UDPBase.cs" />
     <Compile Include="UR29999Connector.cs" />

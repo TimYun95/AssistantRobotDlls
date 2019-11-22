@@ -17,7 +17,11 @@ namespace URServo
             FreeTranslation = 1,
             StraightTranslation = 2,
             TangentialTranslation = 3,
-            SphereTranslation = 4
+            TangentialTranslationWithForce = 4,
+            SphereTranslation = 5,
+            TrackTranslation = 6,
+
+            Test = 254
         }
         #endregion
         

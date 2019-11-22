@@ -105,7 +105,8 @@ namespace URCommunication
         {
             NoModified = 0,
             ProbePrecise = 1,
-            PuncturePrecise = 2
+            PuncturePrecise = 2,
+            ProbeWhole = 3
         }
         #endregion
 
@@ -1224,8 +1225,8 @@ namespace URCommunication
 
             transformedList.AddRange(positionsTcpActual);
             transformedList.AddRange(positionsJointActual);
-            //transformedList.AddRange(temperaturesJoint);speedsTcpActual
-            transformedList.AddRange(speedsTcpActual);
+            transformedList.AddRange(temperaturesJoint);
+            //transformedList.AddRange(speedsTcpActual);
             transformedList.AddRange(currentsJointActual);
 
             foreach (bool io in inputTool)

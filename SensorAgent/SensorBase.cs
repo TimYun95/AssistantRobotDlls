@@ -26,11 +26,17 @@ namespace SensorAgent
         protected System.Timers.Timer sendTimer = new System.Timers.Timer();
 
         public delegate void SendDoubleArray(double[] array); // 发送double数组委托
+        public delegate void SendVoid(); // 发送无参数委托
 
         /// <summary>
         /// 发送传感器采集的数据，数据无效时返回null
         /// </summary>
         public event SendDoubleArray OnSendSenorDatas;
+
+        /// <summary>
+        /// 发送传感器采集数据错误，需要从外部断连
+        /// </summary>
+        public event SendVoid OnSendSenorDataWrong;
 
         protected bool ifUseGyroSensor = true;
         protected bool ifUseInfraredSensor = true;
@@ -41,6 +47,25 @@ namespace SensorAgent
         #endregion
 
         #region 方法
+        /// <summary>
+        /// SensorBase构造
+        /// </summary>
+        /// <param name="useInfrared">是否使用红外线传感器，默认使用</param>
+        /// <param name="useGyro">是否使用陀螺仪传感器，默认使用</param>
+        /// <param name="usePress">是否使用压电传感器，默认使用</param>
+        /// <param name="innerPeriod">内部周期，默认25 ms</param>
+        /// <param name="pushPeriod">推送周期，默认 56 ms</param>
+        public SensorBase(bool useInfrared = true, bool useGyro = true,
+                                      bool usePress = true, int innerPeriod = 25, int pushPeriod = 56)
+        {
+            ifUseGyroSensor = useGyro;
+            ifUseInfraredSensor = useInfrared;
+            ifUsePressSensor = usePress;
+
+            sendDataPeriod = pushPeriod;
+            getDataPeriod = innerPeriod;
+        }
+
         /// <summary>
         /// 检查是否存在传感器
         /// </summary>
@@ -210,6 +235,11 @@ namespace SensorAgent
                 insideLoopCrash = true;
                 dataTimer.Stop();
                 sendTimer.Stop();
+
+                Task.Run(new Action(() =>
+                {
+                    OnSendSenorDataWrong();
+                }));
 
                 isInsideTimer = false;
                 return;

@@ -10,7 +10,7 @@ using LogPrinter;
 namespace URServo
 {
     /// <summary>
-    /// 伺服切向运动模块
+    /// 伺服切向运动模块（使用切向力）
     /// </summary>
     public class ServoTangentialTranslationWithForce : ServoMotionBase
     {
@@ -125,7 +125,7 @@ namespace URServo
         /// </summary>
         protected override double ServoMotionFlag
         {
-            get { return (double)ServoMotionModuleFlag.TangentialTranslation; }
+            get { return (double)ServoMotionModuleFlag.TangentialTranslationWithForce; }
         }
         #endregion
 
