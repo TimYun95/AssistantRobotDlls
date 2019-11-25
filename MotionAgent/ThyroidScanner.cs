@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using System.Reflection;
 using URCommunication;
 using XMLConnection;
+using URServo;
+using URNonServo;
 using LogPrinter;
 
 namespace URModule
@@ -27,13 +29,17 @@ namespace URModule
             DetectingErrorForceMax = 1,
             DetectingSpeedMin = 2,
             DetectingSpeedMax = 3,
-            IfEnableForceTracking = 4,
-            DetectingBasicPreservedForce = 5,
-            MaxAvailableRadius = 6,
-            MaxAvailableAngle = 7,
-            PositionOverride = 8,
-            AngleOverride = 9,
-            ForceOverride = 10
+            IfEnableForceKeeping = 4,
+            IfEnableForceTracking = 5,
+            DetectingBasicPreservedForce = 6,
+            MaxAvailableRadius = 7,
+            MaxAvailableAngle = 8,
+            StopRadius = 9,
+            MaxDistPeriod = 10,
+            MaxAnglePeriod = 11,
+            PositionOverride = 12,
+            AngleOverride = 13,
+            ForceOverride = 14
         }
         #endregion
 
@@ -66,11 +72,16 @@ namespace URModule
         protected double maxAvailableRadius = 0.0; // 最大可行域半径
         protected double maxAvailableAngle = 0.0; // 最大可旋转角度
 
+        protected double stopRadius = 0.0; // 终止可行域半径
+        protected double maxDistPeriod = 0.0; // 单周期最大移动距离
+        protected double maxAnglePeriod = 0.0; // 单周期最大旋转角度
+
         protected double positionOverride = 0.0; // 位移倍率
         protected double angleOverride = 0.0; // 角度倍率
         protected double forceOverride = 0.0; // 力倍率
 
         protected bool ifEnableForceTrack = false; // 力跟踪开关
+        protected bool ifEnableForceKeep = false; // 力保持开关
 
         protected double[] startTcpPostion = new double[6]; // 起始位置对应的Tcp位置
         #endregion
@@ -82,17 +93,24 @@ namespace URModule
         protected const double detectingErrorForceMaxUpperBound = 3.0; // 探测方向误差力最大值上限
         protected const double detectingSpeedMinLowerBound = 0.0000; // 探测方向运动速度最小值下限
         protected const double detectingSpeedMinUpperBound = 0.0003; // 探测方向运动速度最小值上限
-        
+
         protected const double detectingSpeedMaxLowerBound = 0.0002; // 探测方向运动速度最大值下限
         protected const double detectingSpeedMaxUpperBound = 0.0008; // 探测方向运动速度最大值上限
-        protected const double detectingBasicPreservedForceLowerBound = 2.0; // 探测基准保持力大小下限
+        protected const double detectingBasicPreservedForceLowerBound = 3.0; // 探测基准保持力大小下限
         protected const double detectingBasicPreservedForceUpperBound = 6.0; // 探测基准保持力大小上限
-      
-        protected const double maxAvailableRadiusLowerBound = 0.03; // 最大可行域半径下限
-        protected const double maxAvailableRadiusUpperBound = 0.04; // 最大可行域半径上限
+
+        protected const double maxAvailableRadiusLowerBound = 0.3; // 最大可行域半径下限
+        protected const double maxAvailableRadiusUpperBound = 0.4; // 最大可行域半径上限
         protected const double maxAvailableAngleLowerBound = 0.7854; // 最大可旋转角度下限
         protected const double maxAvailableAngleUpperBound = 1.3090; // 最大可旋转角度上限
-        
+
+        protected const double stopRadiusLowerBound = 0.4; // 终止可行域半径下限
+        protected const double stopRadiusUpperBound = 0.5; // 终止可行域半径上限
+        protected const double maxDistPeriodLowerBound = 0.1; // 单周期最大移动距离下限
+        protected const double maxDistPeriodUpperBound = 0.1; // 单周期最大移动距离上限
+        protected const double maxAnglePeriodLowerBound = 0.1; // 单周期最大旋转角度下限
+        protected const double maxAnglePeriodUpperBound = 0.1; // 单周期最大旋转角度上限
+
         protected const double positionOverrideLowerBound = 0.25; // 位移倍率下限
         protected const double positionOverrideUpperBound = 1.25; // 位移倍率上限
         protected const double angleOverrideLowerBound = 0.25; // 角度倍率下限
@@ -117,6 +135,15 @@ namespace URModule
         {
             get { return ifEnableForceTrack; }
             set { ifEnableForceTrack = value; }
+        }
+
+        /// <summary>
+        /// 是否打开力保持
+        /// </summary>
+        public bool IfEnableForceKeep
+        {
+            get { return ifEnableForceKeep; }
+            set { ifEnableForceKeep = value; }
         }
         #endregion
 
@@ -146,12 +173,16 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 2), new string[] { detectingSpeedMinLowerBound.ToString("0.0000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 3), new string[] { (detectingSpeedMaxLowerBound + 0.0003).ToString("0.0000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 4), new string[] { "True" });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 5), new string[] { (detectingBasicPreservedForceLowerBound + 1.0).ToString("0.0") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 6), new string[] { maxAvailableRadiusUpperBound.ToString("0.0000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 7), new string[] { maxAvailableAngleUpperBound.ToString("0.0000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 8), new string[] { "1.00" });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 9), new string[] { "1.00" });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 10), new string[] { "1.00" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 5), new string[] { "True" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 6), new string[] { detectingBasicPreservedForceLowerBound.ToString("0.0") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 7), new string[] { maxAvailableRadiusUpperBound.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 8), new string[] { maxAvailableAngleUpperBound.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 9), new string[] { stopRadiusUpperBound.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 10), new string[] { maxDistPeriodLowerBound.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 11), new string[] { maxAnglePeriodLowerBound.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 12), new string[] { "1.00" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 13), new string[] { "1.00" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 14), new string[] { "1.00" });
 
             xmlProcessor = new XMLConnector(xmlFileName, replaceFilePath, parametersDictionary);
         }
@@ -167,11 +198,16 @@ namespace URModule
             detectingSpeedMin = double.Parse(ParameterStringList[(int)ParameterList.DetectingSpeedMin]);
             detectingSpeedMax = double.Parse(ParameterStringList[(int)ParameterList.DetectingSpeedMax]);
 
+            ifEnableForceKeep = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableForceKeeping]);
             ifEnableForceTrack = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableForceTracking]);
             detectingBasicPreservedForce = double.Parse(ParameterStringList[(int)ParameterList.DetectingBasicPreservedForce]);
 
             maxAvailableRadius = double.Parse(ParameterStringList[(int)ParameterList.MaxAvailableRadius]);
             maxAvailableAngle = double.Parse(ParameterStringList[(int)ParameterList.MaxAvailableAngle]);
+
+            stopRadius = double.Parse(ParameterStringList[(int)ParameterList.StopRadius]);
+            maxDistPeriod = double.Parse(ParameterStringList[(int)ParameterList.MaxDistPeriod]);
+            maxAnglePeriod = double.Parse(ParameterStringList[(int)ParameterList.MaxAnglePeriod]);
 
             positionOverride = double.Parse(ParameterStringList[(int)ParameterList.PositionOverride]);
             angleOverride = double.Parse(ParameterStringList[(int)ParameterList.AngleOverride]);
@@ -190,13 +226,17 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 1), new string[] { detectingErrorForceMax.ToString("0.0") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 2), new string[] { detectingSpeedMin.ToString("0.0000") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 3), new string[] { detectingSpeedMax.ToString("0.0000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 4), new string[] { ifEnableForceTrack.ToString() });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 5), new string[] { detectingBasicPreservedForce.ToString("0.0") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 6), new string[] { maxAvailableRadius.ToString("0.0000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 7), new string[] { maxAvailableAngle.ToString("0.0000") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 8), new string[] { positionOverride.ToString("0.00") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 9), new string[] { angleOverride.ToString("0.00") });
-            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 10), new string[] { forceOverride.ToString("0.0") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 4), new string[] { ifEnableForceKeep.ToString() });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 5), new string[] { ifEnableForceTrack.ToString() });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 6), new string[] { detectingBasicPreservedForce.ToString("0.0") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 7), new string[] { maxAvailableRadius.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 8), new string[] { maxAvailableAngle.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 9), new string[] { stopRadius.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 10), new string[] { maxDistPeriod.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 11), new string[] { maxAnglePeriod.ToString("0.0000") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 12), new string[] { positionOverride.ToString("0.00") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 13), new string[] { angleOverride.ToString("0.00") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 14), new string[] { forceOverride.ToString("0.0") });
 
             xmlProcessor.SaveXML(parametersDictionary);
         }
@@ -211,17 +251,22 @@ namespace URModule
             detectingErrorForceMax = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingErrorForceMax)][0]);
             detectingSpeedMin = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingSpeedMin)][0]);
             detectingSpeedMax = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingSpeedMax)][0]);
-            
+
+            ifEnableForceKeep = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableForceKeeping)][0]);
             ifEnableForceTrack = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableForceTracking)][0]);
             detectingBasicPreservedForce = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.DetectingBasicPreservedForce)][0]);
 
             maxAvailableRadius = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.MaxAvailableRadius)][0]);
             maxAvailableAngle = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.MaxAvailableAngle)][0]);
 
+            stopRadius = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.StopRadius)][0]);
+            maxDistPeriod = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.MaxDistPeriod)][0]);
+            maxAnglePeriod = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.MaxAnglePeriod)][0]);
+
             positionOverride = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.PositionOverride)][0]);
             angleOverride = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.AngleOverride)][0]);
             forceOverride = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.ForceOverride)][0]);
-            
+
             CalculateAndCheckParametersBothExposedAndHidden(); // 加载后限制部分参数并计算相关参数
         }
 
@@ -243,9 +288,13 @@ namespace URModule
             parametersList.Add(new string[] { detectingErrorForceMax.ToString("0.0") });
             parametersList.Add(new string[] { detectingSpeedMin.ToString("0.0000") });
             parametersList.Add(new string[] { detectingSpeedMax.ToString("0.0000") });
+            parametersList.Add(new string[] { ifEnableForceKeep.ToString() });
             parametersList.Add(new string[] { ifEnableForceTrack.ToString() });
             parametersList.Add(new string[] { maxAvailableRadius.ToString("0.0000") });
             parametersList.Add(new string[] { maxAvailableAngle.ToString("0.0000") });
+            parametersList.Add(new string[] { stopRadius.ToString("0.0000") });
+            parametersList.Add(new string[] { maxDistPeriod.ToString("0.0000") });
+            parametersList.Add(new string[] { maxAnglePeriod.ToString("0.0000") });
             parametersList.Add(new string[] { positionOverride.ToString("0.00") });
             parametersList.Add(new string[] { angleOverride.ToString("0.00") });
             parametersList.Add(new string[] { forceOverride.ToString("0.0") });
@@ -275,6 +324,13 @@ namespace URModule
             if (maxAvailableRadius > maxAvailableRadiusUpperBound) maxAvailableRadius = maxAvailableRadiusUpperBound;
             if (maxAvailableAngle < maxAvailableAngleLowerBound) maxAvailableAngle = maxAvailableAngleLowerBound;
             if (maxAvailableAngle > maxAvailableAngleUpperBound) maxAvailableAngle = maxAvailableAngleUpperBound;
+
+            if (stopRadius < stopRadiusLowerBound) stopRadius = stopRadiusLowerBound;
+            if (stopRadius > stopRadiusUpperBound) stopRadius = stopRadiusUpperBound;
+            if (maxDistPeriod < maxDistPeriodLowerBound) maxDistPeriod = maxDistPeriodLowerBound;
+            if (maxDistPeriod > maxDistPeriodUpperBound) maxDistPeriod = maxDistPeriodUpperBound;
+            if (maxAnglePeriod < maxAnglePeriodLowerBound) maxAnglePeriod = maxAnglePeriodLowerBound;
+            if (maxAnglePeriod > maxAnglePeriodUpperBound) maxAnglePeriod = maxAnglePeriodUpperBound;
 
             if (positionOverride < positionOverrideLowerBound) positionOverride = positionOverrideLowerBound;
             if (positionOverride > positionOverrideUpperBound) positionOverride = positionOverrideUpperBound;
@@ -340,762 +396,78 @@ namespace URModule
         /// </summary>
         protected override void ModuleWork()
         {
-            if (ifEntireScan)
+            Task.Run(new Action(() =>
             {
-                #region Entire Scan
-                Task.Run(new Action(() =>
+                // 0. 移动到开始扫描位置
+                internalProcessor.SendURCommanderMoveL(startTcpPostion, fastMoveAccelerationL, fastMoveSpeedL);
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "First go to the start position.");
+                Thread.Sleep(800);
+                if (!JudgeIfMotionCanBeContinued()) return;
+                while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
                 {
-                    double regionSign = ((double)ifCheckRightGalactophore) < 0.5 ? -1.0 : 1.0;
-
-                    // 0. 移动到乳头上方抬起位置
-                    double[] nippleLiftPosition = internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance, nippleTcpPostion);
-                    internalProcessor.SendURCommanderMoveL(nippleLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "First go back to the position over nipple location.");
-
-                    Thread.Sleep(800);
+                    Thread.Sleep(200);
                     if (!JudgeIfMotionCanBeContinued()) return;
-                    while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                    {
-                        Thread.Sleep(200);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                    }
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the position over nipple location.");
+                }
+                if (!JudgeIfMotionCanBeContinued()) return;
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the start position.");
 
-                    // 1. 上半周检查
-                    double angleFlag = 0.0;
-                    double angleRotate = Math.PI / 2.0 * regionSign;
-                    double halfSign = (int)ScanningProcess.FrontHalfRound == 0 ? -1.0 : 1.0;
+                // 1. 执行扫查力度校验
+                Thread.Sleep(100);
+                internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
+                                                                                                                                                         internalProcessor.PositionsTcpActual,
+                                                                                                                                                         checkForceSpeed, checkForceAcceleration,
+                                                                                                                                                         detectingBasicPreservedForce, true);
 
-                    while (angleFlag < Math.PI)
-                    {
-                        // 1.1 移动到抬起位置
-                        double[] routeBeginLiftPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                              internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance,
-                                                                              internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, go to the position over route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, arrive at the position over route begin location.");
-
-                        // 1.2 移动到下压位置
-                        double[] routeBeginSinkPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                                internalProcessor.MoveAlongTcpZAxis(detectingSinkDistance,
-                                                                                internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginSinkPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, go to the position under route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, arrive at the position under route begin location.");
-
-                        // 1.2.1 执行扫查力度校验，方向根据所测得的力定
-                        Thread.Sleep(100);
-                        internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                                 internalProcessor.PositionsTcpActual,
-                                                                                                                                                                 checkForceSpeedLoop, checkForceAccelerationLoop,
-                                                                                                                                                                 detectingBasicPreservedForce, true);
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-
-                        // 1.3 单程运行参数运算
-                        CalculateSingleRouteParameters(angleFlag);
-
-                        // 1.4 开始单程运行
-                        Thread.Sleep(100);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                        ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
-                        internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     internalProcessor.PositionsTcpActual,
-                                                                                                                                                     singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     movingStopDistance,
-                                                                                                                                                     detectingStopDistance,
-                                                                                                                                                     0.0,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
-                                                                                                                                                     movingSpeed,
-                                                                                                                                                     detectingSpeedMax,
-                                                                                                                                                     detectingSpeedMin,
-                                                                                                                                                     detectingErrorForceMax,
-                                                                                                                                                     detectingErrorForceMin,
-                                                                                                                                                     vibratingSpeedMax,
-                                                                                                                                                     (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
-                                                                                                                                                     inverseAngleToFriction,
-                                                                                                                                                     detectingBasicPreservedForce,
-                                                                                                                                                     ifAttitudeChange,
-                                                                                                                                                     vibratingAttitudeMax,
-                                                                                                                                                     ifEnableInitialDetectingForce,
-                                                                                                                                                     ifEnableAngleCorrected);
-                        if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
-                        else Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-
-                        // 1.5 单程运行完成，进行状态检查
-                        Thread.Sleep(50);
-                        bool ifOpenFakeMode = false;
-                        if (internalProcessor.IfNearSingularPoint)
-                        {
-                            internalProcessor.OpenFakeSingularPointStatus();
-                            ifOpenFakeMode = true;
-                        }
-
-                        // 1.6 移动到过渡位置
-                        double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
-                        routeTransitPosition[3] = routeBeginSinkPosition[3];
-                        routeTransitPosition[4] = routeBeginSinkPosition[4];
-                        routeTransitPosition[5] = routeBeginSinkPosition[5];
-                        internalProcessor.SendURCommanderMoveL(routeTransitPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive At Transit Position.");
-
-                        // 1.7 根据状态检查结果进行状态切换
-                        if (ifOpenFakeMode)
-                        {
-                            internalProcessor.CloseFakeSingularPointStatus();
-                        }
-
-                        // 1.8 保存采集的数据
-                        Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
-
-                        // 1.9 为下一程检查做准备
-                        angleFlag += checkingStep;
-                        angleRotate -= (regionSign * checkingStep);
-                    }
-
-                    // 2. 下半周检查
-                    angleRotate += Math.PI * regionSign;
-                    halfSign = (int)ScanningProcess.BehindHalfRound == 0 ? -1.0 : 1.0;
-
-                    while (angleFlag < 2.0 * Math.PI)
-                    {
-                        // 2.1 移动到抬起位置
-                        double[] routeBeginLiftPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                              internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance,
-                                                                              internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, go to the position over route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, arrive at the position over route begin location.");
-
-                        // 2.2 移动到下压位置
-                        double[] routeBeginSinkPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                                internalProcessor.MoveAlongTcpZAxis(detectingSinkDistance,
-                                                                                internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginSinkPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, go to the position under route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, arrive at the position under route begin location.");
-
-                        // 2.2.1 执行扫查力度校验，方向根据所测得的力定
-                        Thread.Sleep(100);
-                        internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                                 internalProcessor.PositionsTcpActual,
-                                                                                                                                                                 checkForceSpeedLoop, checkForceAccelerationLoop,
-                                                                                                                                                                 detectingBasicPreservedForce, true);
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-
-                        // 2.3 单程运行参数运算
-                        CalculateSingleRouteParameters(angleFlag);
-
-                        // 2.4 开始单程运行
-                        Thread.Sleep(100);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                        ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
-                        internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     internalProcessor.PositionsTcpActual,
-                                                                                                                                                     singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     movingStopDistance,
-                                                                                                                                                     detectingStopDistance,
-                                                                                                                                                     0.0,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
-                                                                                                                                                     movingSpeed,
-                                                                                                                                                     detectingSpeedMax,
-                                                                                                                                                     detectingSpeedMin,
-                                                                                                                                                     detectingErrorForceMax,
-                                                                                                                                                     detectingErrorForceMin,
-                                                                                                                                                     vibratingSpeedMax,
-                                                                                                                                                     (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
-                                                                                                                                                     inverseAngleToFriction,
-                                                                                                                                                     detectingBasicPreservedForce,
-                                                                                                                                                     ifAttitudeChange,
-                                                                                                                                                     vibratingAttitudeMax,
-                                                                                                                                                     ifEnableInitialDetectingForce,
-                                                                                                                                                     ifEnableAngleCorrected);
-                        if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
-                        else Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-
-                        // 2.5 单程运行完成，进行状态检查
-                        Thread.Sleep(50);
-                        bool ifOpenFakeMode = false;
-                        if (internalProcessor.IfNearSingularPoint)
-                        {
-                            internalProcessor.OpenFakeSingularPointStatus();
-                            ifOpenFakeMode = true;
-                        }
-
-                        // 2.6 移动到过渡位置
-                        double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
-                        routeTransitPosition[3] = routeBeginSinkPosition[3];
-                        routeTransitPosition[4] = routeBeginSinkPosition[4];
-                        routeTransitPosition[5] = routeBeginSinkPosition[5];
-                        internalProcessor.SendURCommanderMoveL(routeTransitPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive At Transit Position.");
-
-                        // 2.7 根据状态检查结果进行状态切换
-                        if (ifOpenFakeMode)
-                        {
-                            internalProcessor.CloseFakeSingularPointStatus();
-                        }
-
-                        // 2.8 保存采集的数据
-                        Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
-
-                        // 2.9 为下一程检查做准备
-                        angleFlag += checkingStep;
-                        angleRotate -= (regionSign * checkingStep);
-                    }
-
-                    // 3. 上半周补充检查一次，保证全部循环过
-                    angleRotate += Math.PI * regionSign;
-                    halfSign = (int)ScanningProcess.FrontHalfRound == 0 ? -1.0 : 1.0;
-
-                    do
-                    {
-                        // 3.1 移动到抬起位置
-                        double[] routeBeginLiftPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                              internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance,
-                                                                              internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, go to the position over route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, arrive at the position over route begin location.");
-
-                        // 3.2 移动到下压位置
-                        double[] routeBeginSinkPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                                internalProcessor.MoveAlongTcpZAxis(detectingSinkDistance,
-                                                                                internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginSinkPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, go to the position under route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, arrive at the position under route begin location.");
-
-                        // 3.2.1 执行扫查力度校验，方向根据所测得的力定
-                        Thread.Sleep(100);
-                        internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                                 internalProcessor.PositionsTcpActual,
-                                                                                                                                                                 checkForceSpeedLoop, checkForceAccelerationLoop,
-                                                                                                                                                                 detectingBasicPreservedForce, true);
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-
-                        // 3.3 单程运行参数运算
-                        CalculateSingleRouteParameters(angleFlag);
-
-                        // 3.4 开始单程运行
-                        Thread.Sleep(100);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                        ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
-                        internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     internalProcessor.PositionsTcpActual,
-                                                                                                                                                     singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     movingStopDistance,
-                                                                                                                                                     detectingStopDistance,
-                                                                                                                                                     0.0,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
-                                                                                                                                                     movingSpeed,
-                                                                                                                                                     detectingSpeedMax,
-                                                                                                                                                     detectingSpeedMin,
-                                                                                                                                                     detectingErrorForceMax,
-                                                                                                                                                     detectingErrorForceMin,
-                                                                                                                                                     vibratingSpeedMax,
-                                                                                                                                                     (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
-                                                                                                                                                     inverseAngleToFriction,
-                                                                                                                                                     detectingBasicPreservedForce,
-                                                                                                                                                     ifAttitudeChange,
-                                                                                                                                                     vibratingAttitudeMax,
-                                                                                                                                                     ifEnableInitialDetectingForce,
-                                                                                                                                                     ifEnableAngleCorrected);
-                        if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
-                        else Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-
-                        // 3.5 单程运行完成，进行状态检查
-                        Thread.Sleep(50);
-                        bool ifOpenFakeMode = false;
-                        if (internalProcessor.IfNearSingularPoint)
-                        {
-                            internalProcessor.OpenFakeSingularPointStatus();
-                            ifOpenFakeMode = true;
-                        }
-
-                        // 3.6 移动到过渡位置
-                        double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
-                        routeTransitPosition[3] = routeBeginSinkPosition[3];
-                        routeTransitPosition[4] = routeBeginSinkPosition[4];
-                        routeTransitPosition[5] = routeBeginSinkPosition[5];
-                        internalProcessor.SendURCommanderMoveL(routeTransitPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive At Transit Position.");
-
-                        // 3.7 根据状态检查结果进行状态切换
-                        if (ifOpenFakeMode)
-                        {
-                            internalProcessor.CloseFakeSingularPointStatus();
-                        }
-
-                        // 3.8 保存采集的数据
-                        Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
-                    }
-                    while (false);
-
-                    // 4. 回乳头上方
-                    internalProcessor.SendURCommanderMoveL(nippleLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Finally go back to the position over nipple location.");
-
-                    Thread.Sleep(800);
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                    {
-                        Thread.Sleep(200);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                    }
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the position over nipple location.");
-
-                    // 5. 扫查结束
-                    Thread.Sleep(100);
-                    StopModuleNow();
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End the checking process.");
-                }));
-                #endregion
-            }
-            else
-            {
-                #region Single Scan
-                Task.Run(new Action(() =>
+                Thread.Sleep(800);
+                if (!JudgeIfMotionCanBeContinued()) return;
+                while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
                 {
-                    double regionSign = ((double)ifCheckRightGalactophore) < 0.5 ? -1.0 : 1.0;
-
-                    // 0. 移动到乳头上方抬起位置
-                    double[] nippleLiftPosition = internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance, nippleTcpPostion);
-                    internalProcessor.SendURCommanderMoveL(nippleLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "First go back to the position over nipple location.");
-
-                    Thread.Sleep(800);
+                    Thread.Sleep(200);
                     if (!JudgeIfMotionCanBeContinued()) return;
-                    while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                    {
-                        Thread.Sleep(200);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                    }
+                }
+                if (!JudgeIfMotionCanBeContinued()) return;
+
+                // 2. 开始运行
+                Thread.Sleep(100);
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin checking.");
+                internalProcessor.servoTrackTranslationModule.ServoMotionSetAndBegin(stopRadius, 
+                                                                                                                                      maxDistPeriod,
+                                                                                                                                      maxAnglePeriod,
+                                                                                                                                      ifEnableForceKeep,
+                                                                                                                                      detectingSpeedMax,
+                                                                                                                                      detectingSpeedMin,
+                                                                                                                                      detectingErrorForceMax,
+                                                                                                                                      detectingErrorForceMin);
+                Thread.Sleep(800);
+                if (!JudgeIfMotionCanBeContinued()) return;
+                while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
+                {
+                    Thread.Sleep(200);
                     if (!JudgeIfMotionCanBeContinued()) return;
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the position over nipple location.");
+                }
+                if (!JudgeIfMotionCanBeContinued()) return;
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End checking.");
 
-                    // 1. 上半周检查
-                    double angleFlag = angleScan - Math.Floor(angleScan / (2 * Math.PI)) * 2 * Math.PI;
-                    double angleRotate = Math.PI / 2.0 * regionSign - regionSign * angleScan;
-                    double halfSign = (int)ScanningProcess.FrontHalfRound == 0 ? -1.0 : 1.0;
+                // 3. 运行完成
+                Thread.Sleep(50);
+                internalProcessor.SendURCommanderMoveLViaJ(initialJointAngles, normalMoveAccelerationL, normalMoveSpeedL);
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Go back to initial joint position.");
 
-                    if (angleFlag < Math.PI)
-                    {
-                        // 1.1 移动到抬起位置
-                        double[] routeBeginLiftPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                              internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance,
-                                                                              internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, go to the position over route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, arrive at the position over route begin location.");
-
-                        // 1.2 移动到下压位置
-                        double[] routeBeginSinkPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                                internalProcessor.MoveAlongTcpZAxis(detectingSinkDistance,
-                                                                                internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginSinkPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, go to the position under route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Front-half check, arrive at the position under route begin location.");
-
-                        // 1.2.1 执行扫查力度校验，方向根据所测得的力定
-                        Thread.Sleep(100);
-                        internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                                 internalProcessor.PositionsTcpActual,
-                                                                                                                                                                 checkForceSpeedLoop, checkForceAccelerationLoop,
-                                                                                                                                                                 detectingBasicPreservedForce, true);
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-
-                        // 1.3 单程运行参数运算
-                        CalculateSingleRouteParameters(angleFlag);
-
-                        // 1.4 开始单程运行
-                        Thread.Sleep(100);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                        ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
-                        internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     internalProcessor.PositionsTcpActual,
-                                                                                                                                                     singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     movingStopDistance,
-                                                                                                                                                     detectingStopDistance,
-                                                                                                                                                     0.0,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
-                                                                                                                                                     movingSpeed,
-                                                                                                                                                     detectingSpeedMax,
-                                                                                                                                                     detectingSpeedMin,
-                                                                                                                                                     detectingErrorForceMax,
-                                                                                                                                                     detectingErrorForceMin,
-                                                                                                                                                     vibratingSpeedMax,
-                                                                                                                                                     (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
-                                                                                                                                                     inverseAngleToFriction,
-                                                                                                                                                     detectingBasicPreservedForce,
-                                                                                                                                                     ifAttitudeChange,
-                                                                                                                                                     vibratingAttitudeMax,
-                                                                                                                                                     ifEnableInitialDetectingForce,
-                                                                                                                                                     ifEnableAngleCorrected);
-                        if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
-                        else Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-
-                        // 1.5 单程运行完成，进行状态检查
-                        Thread.Sleep(50);
-                        bool ifOpenFakeMode = false;
-                        if (internalProcessor.IfNearSingularPoint)
-                        {
-                            internalProcessor.OpenFakeSingularPointStatus();
-                            ifOpenFakeMode = true;
-                        }
-
-                        // 1.6 移动到过渡位置
-                        double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
-                        routeTransitPosition[3] = routeBeginSinkPosition[3];
-                        routeTransitPosition[4] = routeBeginSinkPosition[4];
-                        routeTransitPosition[5] = routeBeginSinkPosition[5];
-                        internalProcessor.SendURCommanderMoveL(routeTransitPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive At Transit Position.");
-
-                        // 1.7 根据状态检查结果进行状态切换
-                        if (ifOpenFakeMode)
-                        {
-                            internalProcessor.CloseFakeSingularPointStatus();
-                        }
-
-                        // 1.8 保存采集的数据
-                        Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
-                    }
-                    else if (angleFlag <= 2.0 * Math.PI)
-                    {
-                        // 2. 下半周检查
-                        angleRotate = 3.0 * Math.PI / 2.0 * regionSign - regionSign * angleScan;
-                        halfSign = (int)ScanningProcess.BehindHalfRound == 0 ? -1.0 : 1.0;
-
-                        // 2.1 移动到抬起位置
-                        double[] routeBeginLiftPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                              internalProcessor.MoveAlongTcpZAxis(-detectingSafetyLiftDistance,
-                                                                              internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, go to the position over route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, arrive at the position over route begin location.");
-
-                        // 2.2 移动到下压位置
-                        double[] routeBeginSinkPosition = internalProcessor.MoveAlongTcpYAxis(nippleForbiddenRadius * halfSign,
-                                                                                internalProcessor.MoveAlongTcpZAxis(detectingSinkDistance,
-                                                                                internalProcessor.RotateByTcpZAxis(angleRotate, nippleTcpPostion)));
-                        internalProcessor.SendURCommanderMoveL(routeBeginSinkPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, go to the position under route begin location.");
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Behind-half check, arrive at the position under route begin location.");
-
-                        // 2.2.1 执行扫查力度校验，方向根据所测得的力定
-                        Thread.Sleep(100);
-                        internalProcessor.nonServoFindForceTranslationModule.NonServoMotionSetAndBegin(NonServoFindForceTranslation.NonServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                                 internalProcessor.PositionsTcpActual,
-                                                                                                                                                                 checkForceSpeedLoop, checkForceAccelerationLoop,
-                                                                                                                                                                 detectingBasicPreservedForce, true);
-
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-
-                        // 2.3 单程运行参数运算
-                        CalculateSingleRouteParameters(angleFlag);
-
-                        // 2.4 开始单程运行
-                        Thread.Sleep(100);
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-                        ServoTangentialTranslationWithForce.ServoDirectionAtTcp singleMovingDirection = (halfSign < 0) ? ServoTangentialTranslationWithForce.ServoDirectionAtTcp.NegativeY : ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveY;
-                        internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionSetAndBegin(singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     internalProcessor.PositionsTcpActual,
-                                                                                                                                                     singleMovingDirection,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoDirectionAtTcp.PositiveZ,
-                                                                                                                                                     movingStopDistance,
-                                                                                                                                                     detectingStopDistance,
-                                                                                                                                                     0.0,
-                                                                                                                                                     ServoTangentialTranslationWithForce.ServoStopMode.DistanceCondition,
-                                                                                                                                                     movingSpeed,
-                                                                                                                                                     detectingSpeedMax,
-                                                                                                                                                     detectingSpeedMin,
-                                                                                                                                                     detectingErrorForceMax,
-                                                                                                                                                     detectingErrorForceMin,
-                                                                                                                                                     vibratingSpeedMax,
-                                                                                                                                                     (vibratingSpeedMax - vibratingSpeedMin) / (vibratingErrorForceMax - vibratingErrorForceMin),
-                                                                                                                                                     inverseAngleToFriction,
-                                                                                                                                                     detectingBasicPreservedForce,
-                                                                                                                                                     ifAttitudeChange,
-                                                                                                                                                     vibratingAttitudeMax,
-                                                                                                                                                     ifEnableInitialDetectingForce,
-                                                                                                                                                     ifEnableAngleCorrected);
-                        if (ifEnableInitialDetectingForce) Thread.Sleep(4000);
-                        else Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End galactophore checking at route with angle of " + URMath.Rad2Deg(angleFlag).ToString("0.0") + ".");
-
-                        // 2.5 单程运行完成，进行状态检查
-                        Thread.Sleep(50);
-                        bool ifOpenFakeMode = false;
-                        if (internalProcessor.IfNearSingularPoint)
-                        {
-                            internalProcessor.OpenFakeSingularPointStatus();
-                            ifOpenFakeMode = true;
-                        }
-
-                        // 2.6 移动到过渡位置
-                        double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
-                        routeTransitPosition[3] = routeBeginSinkPosition[3];
-                        routeTransitPosition[4] = routeBeginSinkPosition[4];
-                        routeTransitPosition[5] = routeBeginSinkPosition[5];
-                        internalProcessor.SendURCommanderMoveL(routeTransitPosition, normalMoveAccelerationL, normalMoveSpeedL);
-                        Thread.Sleep(800);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                        {
-                            Thread.Sleep(200);
-                            if (!JudgeIfMotionCanBeContinued()) return;
-                        }
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive At Transit Position.");
-
-                        // 2.7 根据状态检查结果进行状态切换
-                        if (ifOpenFakeMode)
-                        {
-                            internalProcessor.CloseFakeSingularPointStatus();
-                        }
-
-                        // 2.8 保存采集的数据
-                        Logger.DataPrinting(internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionRecordDatas, installHanged, installTcpPosition, toolMass);
-                    }
-
-                    // 4. 回乳头上方
-                    internalProcessor.SendURCommanderMoveL(nippleLiftPosition, fastMoveAccelerationL, fastMoveSpeedL);
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Finally go back to the position over nipple location.");
-
-                    Thread.Sleep(800);
+                Thread.Sleep(800);
+                if (!JudgeIfMotionCanBeContinued()) return;
+                while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
+                {
+                    Thread.Sleep(200);
                     if (!JudgeIfMotionCanBeContinued()) return;
-                    while (internalProcessor.ProgramState == (double)URDataProcessor.RobotProgramStatus.Running)
-                    {
-                        Thread.Sleep(200);
-                        if (!JudgeIfMotionCanBeContinued()) return;
-                    }
-                    if (!JudgeIfMotionCanBeContinued()) return;
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at the position over nipple location.");
-
-                    // 5. 扫查结束
-                    Thread.Sleep(100);
-                    StopModuleNow();
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End the checking process.");
-                }));
-                #endregion
-            }
+                }
+                if (!JudgeIfMotionCanBeContinued()) return;
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at initial joint position.");
+                
+                // 4. 扫查结束
+                Thread.Sleep(100);
+                StopModuleNow();
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End the checking process.");
+            }));
         }
 
         /// <summary>
@@ -1128,8 +500,7 @@ namespace URModule
         protected override void StopRelevantModule()
         {
             internalProcessor.nonServoFindForceTranslationModule.NonServoMotionAbort();
-            internalProcessor.servoFreeTranslationModule.ServoMotionAbort();
-            internalProcessor.servoTangentialTranslationWithForceModule.ServoMotionAbort();
+            internalProcessor.servoTrackTranslationModule.ServoMotionAbort();
         }
 
         #endregion
