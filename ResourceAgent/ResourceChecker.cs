@@ -25,7 +25,8 @@ namespace ResourceCheck
 
         private static readonly string confPath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\";
         private static readonly string confSavePath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\Saves\\";
-        private static readonly string defaultGalactophoreConfPath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\Saves\\GalactophoreDetection\\";
+        private static readonly string defaultGalactophoreDetectConfPath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\Saves\\GalactophoreDetection\\";
+        private static readonly string defaultThyroidScanConfPath = AppDomain.CurrentDomain.BaseDirectory + "Conf\\Saves\\ThyroidScanning\\";
 
         private static readonly string keyDataPath = AppDomain.CurrentDomain.BaseDirectory + "SavedKeyDatas\\";
         #endregion
@@ -49,7 +50,8 @@ namespace ResourceCheck
             // 判断为空则使用默认值
             if (object.Equals(modelConfTransferPath, null))
             {
-                modelConfTransferPath = new string[] { defaultGalactophoreConfPath };
+                modelConfTransferPath = new string[] { defaultGalactophoreDetectConfPath, 
+                                                                                defaultThyroidScanConfPath};
             }
 
             // 不存在日志文件夹则创建

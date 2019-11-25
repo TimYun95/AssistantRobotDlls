@@ -225,7 +225,7 @@ namespace URServo
         /// </summary>
         /// <param name="flag">运动标号</param>
         /// <param name="values">运动参考值</param>
-        protected void ServoMotionRefreshRefValues(int flag, double[] values)
+        public void ServoMotionRefreshRefValues(int flag, double[] values)
         {
             lock (refLocker)
             {

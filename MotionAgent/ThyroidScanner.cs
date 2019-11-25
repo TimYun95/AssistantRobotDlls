@@ -503,6 +503,20 @@ namespace URModule
             internalProcessor.servoTrackTranslationModule.ServoMotionAbort();
         }
 
+        /// <summary>
+        /// 更新控制目标参考值
+        /// </summary>
+        /// <param name="flag">运动标号</param>
+        /// <param name="values">运动参考值</param>
+        public void RefreshAimPostion(int flag, double[] values)
+        {
+
+
+
+
+
+        }
+
         #endregion
 
 
