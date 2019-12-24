@@ -2047,6 +2047,9 @@ namespace URCommunication
                 }
 
                 Thread.Sleep(1000);
+                // 记录当前的机械臂TCP坐标
+                double[] zeroedPosition = PositionsTcpActual;
+
                 // 开始循环采集
                 for (int loop = 1; loop < 16; loop++)
                 {
@@ -2054,18 +2057,20 @@ namespace URCommunication
                     double[,] forceRecord = new double[6, 360 / 2 * 3];
 
                     // 起始计量位置
-                    double[] jointPos = (double[])InitialPosition.Clone();
+                    double[] startPos = (double[])zeroedPosition.Clone();
 
                     for (int subLoop = 1; subLoop < 4; subLoop++)
                     {
-                        jointPos = (double[])InitialPosition.Clone();
-                        jointPos[3] -= (3 * (loop - 1) + subLoop) * URMath.Deg2Rad(2);
+                        double yAngle = (3 * (loop - 1) + subLoop) * URMath.Deg2Rad(2);
+                        double[] thisLoopstartPos = RotateByTcpYAxis(yAngle, zeroedPosition);
+
                         for (int num = 0; num < 180; num++)
                         {
-                            jointPos[5] = InitialPosition[5] -  URMath.Deg2Rad(180) + URMath.Deg2Rad(2) * num;
+                            double zAngle = -URMath.Deg2Rad(180) + URMath.Deg2Rad(2) * num;
+                            double[] thisLoopPos = RotateByTcpZAxis(zAngle, thisLoopstartPos);
 
                             // 移动到测量位置
-                            SendURCommanderMoveJ(jointPos, 0.3, 0.2);
+                            SendURCommanderMoveJViaL(thisLoopPos, 0.2, 0.1);
 
                             #region 测量力信号
                             Thread.Sleep(800);
@@ -2078,7 +2083,7 @@ namespace URCommunication
                             Thread.Sleep(1000);
 
                             // 测试力信号
-                            Thread.Sleep(500);
+                            Thread.Sleep(500+250);
                             double[][] getForces = ContinuousOriginalFlangeForces;
                             int numForces = getForces.Count();
                             double[] fx = new double[numForces];
@@ -2096,23 +2101,26 @@ namespace URCommunication
                                 ty[i] = getForces[i][4];
                                 tz[i] = getForces[i][5];
                             }
-                            forceRecord[0, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fx, 4);
-                            forceRecord[1, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fy, 4);
-                            forceRecord[2, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fz, 4);
-                            forceRecord[3, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tx, 5);
-                            forceRecord[4, (subLoop - 1) * 180 + num] = URMath.GaussAverage(ty, 5);
-                            forceRecord[5, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tz, 5);
+                            forceRecord[0, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fx, 4, true);
+                            forceRecord[1, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fy, 4, true);
+                            forceRecord[2, (subLoop - 1) * 180 + num] = URMath.GaussAverage(fz, 4, true);
+                            forceRecord[3, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tx, 5, true);
+                            forceRecord[4, (subLoop - 1) * 180 + num] = URMath.GaussAverage(ty, 5, true);
+                            forceRecord[5, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tz, 5, true);
                             #endregion
 
-                            OnSendEntireCalibrationProcess(Convert.ToInt16(Math.Round((3 * (loop - 1) + subLoop) * 6.0 / 180)));
+                            OnSendEntireCalibrationProcess(Convert.ToInt16(Math.Round((3 * (loop - 1) + subLoop - 1) * 2.0 +num * 2.0 / 180)));
                         }
 
                         #region 原路返回，防止绕线
-                        double[] tempJointPos = (double[])jointPos.Clone();
+                        double[] tempPos = (double[])thisLoopstartPos.Clone();
                         for (int round = 1; round < 3; round++)
                         {
-                            tempJointPos[5] = InitialPosition[5] + URMath.Deg2Rad(180) - URMath.Deg2Rad(120) * round;
-                            SendURCommanderMoveJ(tempJointPos, 0.3, 0.2);
+                            double zAngle = URMath.Deg2Rad(180) - URMath.Deg2Rad(120) * round;
+                            double[] thisLoopPos = RotateByTcpZAxis(zAngle, thisLoopstartPos);
+
+                            SendURCommanderMoveJViaL(thisLoopPos, 0.4, 0.3);
+
                             Thread.Sleep(800);
                             while (ProgramState == 2.0)
                             {

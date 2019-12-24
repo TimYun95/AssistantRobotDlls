@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Reflection;
 using URCommunication;
 using XMLConnection;
+using MathFunction;
 using URServo;
 using URNonServo;
 using LogPrinter;
@@ -39,7 +40,9 @@ namespace URModule
             MaxAnglePeriod = 11,
             PositionOverride = 12,
             AngleOverride = 13,
-            ForceOverride = 14
+            ForceOverride = 14,
+            IfEnableAttitudeTracking = 15,
+            IfEnableTranslationTracking = 16
         }
         #endregion
 
@@ -57,6 +60,8 @@ namespace URModule
         /// 发送当前模块参数
         /// </summary>
         public event SendStringList OnSendModuleParameters;
+
+        private static readonly object controlParamLocker = new object(); // 部分控制参数锁
         #endregion
 
         #region 基本控制字段
@@ -82,6 +87,8 @@ namespace URModule
 
         protected bool ifEnableForceTrack = false; // 力跟踪开关
         protected bool ifEnableForceKeep = false; // 力保持开关
+        protected bool ifEnableAttitudeTrack = false; // 姿态跟踪开关
+        protected bool ifEnableTranslationTrack = false; // 位移跟踪开关
 
         protected double[] startTcpPostion = new double[6]; // 起始位置对应的Tcp位置
         #endregion
@@ -106,10 +113,10 @@ namespace URModule
 
         protected const double stopRadiusLowerBound = 0.4; // 终止可行域半径下限
         protected const double stopRadiusUpperBound = 0.5; // 终止可行域半径上限
-        protected const double maxDistPeriodLowerBound = 0.1; // 单周期最大移动距离下限
-        protected const double maxDistPeriodUpperBound = 0.1; // 单周期最大移动距离上限
-        protected const double maxAnglePeriodLowerBound = 0.1; // 单周期最大旋转角度下限
-        protected const double maxAnglePeriodUpperBound = 0.1; // 单周期最大旋转角度上限
+        protected const double maxDistPeriodLowerBound = 0.0002; // 单周期最大移动距离下限
+        protected const double maxDistPeriodUpperBound = 0.0009; // 单周期最大移动距离上限
+        protected const double maxAnglePeriodLowerBound = 0.0005; // 单周期最大旋转角度下限
+        protected const double maxAnglePeriodUpperBound = 0.0030; // 单周期最大旋转角度上限
 
         protected const double positionOverrideLowerBound = 0.25; // 位移倍率下限
         protected const double positionOverrideUpperBound = 1.25; // 位移倍率上限
@@ -144,6 +151,24 @@ namespace URModule
         {
             get { return ifEnableForceKeep; }
             set { ifEnableForceKeep = value; }
+        }
+
+        /// <summary>
+        /// 是否打开姿态跟踪
+        /// </summary>
+        public bool IfEnableAttitudeTrack
+        {
+            get { return ifEnableAttitudeTrack; }
+            set { ifEnableAttitudeTrack = value; }
+        }
+
+        /// <summary>
+        /// 是否打开位移跟踪
+        /// </summary>
+        public bool IfEnableTranslationTrack
+        {
+            get { return ifEnableTranslationTrack; }
+            set { ifEnableTranslationTrack = value; }
         }
         #endregion
 
@@ -183,6 +208,8 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 12), new string[] { "1.00" });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 13), new string[] { "1.00" });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 14), new string[] { "1.00" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 15), new string[] { "True" });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 16), new string[] { "True" });
 
             xmlProcessor = new XMLConnector(xmlFileName, replaceFilePath, parametersDictionary);
         }
@@ -213,6 +240,9 @@ namespace URModule
             angleOverride = double.Parse(ParameterStringList[(int)ParameterList.AngleOverride]);
             forceOverride = double.Parse(ParameterStringList[(int)ParameterList.ForceOverride]);
 
+            ifEnableAttitudeTrack = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableAttitudeTracking]);
+            ifEnableTranslationTrack = bool.Parse(ParameterStringList[(int)ParameterList.IfEnableTranslationTracking]);
+
             CalculateAndCheckParametersBothExposedAndHidden(); // 加载后限制部分参数并计算相关参数
         }
 
@@ -237,6 +267,8 @@ namespace URModule
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 12), new string[] { positionOverride.ToString("0.00") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 13), new string[] { angleOverride.ToString("0.00") });
             parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 14), new string[] { forceOverride.ToString("0.0") });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 15), new string[] { ifEnableAttitudeTrack.ToString() });
+            parametersDictionary.Add(Enum.GetName(typeof(ParameterList), 16), new string[] { ifEnableTranslationTrack.ToString() });
 
             xmlProcessor.SaveXML(parametersDictionary);
         }
@@ -267,6 +299,9 @@ namespace URModule
             angleOverride = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.AngleOverride)][0]);
             forceOverride = double.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.ForceOverride)][0]);
 
+            ifEnableAttitudeTrack = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableAttitudeTracking)][0]);
+            ifEnableTranslationTrack = bool.Parse(parametersDictionary[Enum.GetName(typeof(ParameterList), ParameterList.IfEnableTranslationTracking)][0]);
+
             CalculateAndCheckParametersBothExposedAndHidden(); // 加载后限制部分参数并计算相关参数
         }
 
@@ -290,14 +325,19 @@ namespace URModule
             parametersList.Add(new string[] { detectingSpeedMax.ToString("0.0000") });
             parametersList.Add(new string[] { ifEnableForceKeep.ToString() });
             parametersList.Add(new string[] { ifEnableForceTrack.ToString() });
+            parametersList.Add(new string[] { detectingBasicPreservedForce.ToString("0.0") });
+
             parametersList.Add(new string[] { maxAvailableRadius.ToString("0.0000") });
             parametersList.Add(new string[] { maxAvailableAngle.ToString("0.0000") });
             parametersList.Add(new string[] { stopRadius.ToString("0.0000") });
             parametersList.Add(new string[] { maxDistPeriod.ToString("0.0000") });
             parametersList.Add(new string[] { maxAnglePeriod.ToString("0.0000") });
+           
             parametersList.Add(new string[] { positionOverride.ToString("0.00") });
             parametersList.Add(new string[] { angleOverride.ToString("0.00") });
             parametersList.Add(new string[] { forceOverride.ToString("0.0") });
+            parametersList.Add(new string[] { ifEnableAttitudeTrack.ToString() });
+            parametersList.Add(new string[] { ifEnableTranslationTrack.ToString() });
 
             OnSendModuleParameters(parametersList);
         }
@@ -427,10 +467,14 @@ namespace URModule
                 }
                 if (!JudgeIfMotionCanBeContinued()) return;
 
-                // 2. 开始运行
+                // 2. 设置初始目标
+                RefreshAimPostion(0, new double[] { 0.0, 0.0, startTcpPostion[3], startTcpPostion[4], startTcpPostion[5], -detectingBasicPreservedForce });
+                Thread.Sleep(100);
+
+                // 3. 开始运行
                 Thread.Sleep(100);
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begin checking.");
-                internalProcessor.servoTrackTranslationModule.ServoMotionSetAndBegin(stopRadius, 
+                internalProcessor.servoTrackTranslationModule.ServoMotionSetAndBegin(stopRadius,
                                                                                                                                       maxDistPeriod,
                                                                                                                                       maxAnglePeriod,
                                                                                                                                       ifEnableForceKeep,
@@ -448,7 +492,7 @@ namespace URModule
                 if (!JudgeIfMotionCanBeContinued()) return;
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End checking.");
 
-                // 3. 运行完成
+                // 4. 运行完成
                 Thread.Sleep(50);
                 internalProcessor.SendURCommanderMoveLViaJ(initialJointAngles, normalMoveAccelerationL, normalMoveSpeedL);
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Go back to initial joint position.");
@@ -462,8 +506,8 @@ namespace URModule
                 }
                 if (!JudgeIfMotionCanBeContinued()) return;
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Arrive at initial joint position.");
-                
-                // 4. 扫查结束
+
+                // 5. 扫查结束
                 Thread.Sleep(100);
                 StopModuleNow();
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "End the checking process.");
@@ -510,17 +554,153 @@ namespace URModule
         /// <param name="values">运动参考值</param>
         public void RefreshAimPostion(int flag, double[] values)
         {
+            if (workingStatus == WorkStatus.WorkRunning)
+            {
+                double posFactor, attFactor, fosFactor;
+                bool posEnable, attEnable, fosKeepEnable, fosTrackEnable;
+                lock (controlParamLocker)
+                {
+                    posFactor = positionOverride;
+                    attFactor = angleOverride;
+                    fosFactor = forceOverride;
 
+                    posEnable = ifEnableTranslationTrack;
+                    attEnable = ifEnableAttitudeTrack;
+                    fosKeepEnable = ifEnableForceKeep;
+                    fosTrackEnable = ifEnableForceTrack;
+                }
 
+                int nextFlag = flag;
+                double xDist = values[0] * posFactor;
+                double yDist = values[1] * posFactor;
+                double[] posture = new double[] { values[2] * attFactor, 
+                                                                       values[3] * attFactor, 
+                                                                       values[4] * attFactor };
+                double force = values[5] * fosFactor;
 
+                // 1. 检验距离是否太大
+                if (URMath.LengthOfArray(new double[] { xDist, yDist, 0 }) > maxAvailableRadius)
+                {
+                    double theta = Math.Atan2(yDist, xDist);
+                    xDist = maxAvailableRadius * Math.Cos(theta);
+                    yDist = maxAvailableRadius * Math.Sin(theta);
+                }
 
+                // 2. 检测转角是否过大
+                double recAngle = URMath.LengthOfArray(posture);
+                if (recAngle > maxAvailableAngle)
+                {
+                    posture[0] = posture[0] / recAngle * maxAvailableAngle;
+                    posture[1] = posture[1] / recAngle * maxAvailableAngle;
+                    posture[2] = posture[2] / recAngle * maxAvailableAngle;
+                }
 
+                // 3. 转换到当前的目标姿态
+                Quatnum initialQ = URMath.AxisAngle2Quatnum(
+                     new double[] { startTcpPostion[3], startTcpPostion[4], startTcpPostion[5] });
+                double rotateAngle = URMath.LengthOfArray(posture);
+                double[] rotateAxisAtBase =
+                    URMath.FindDirectionToSecondReferenceFromFirstReference
+                    (new double[] { posture[0] / rotateAngle, posture[1] / rotateAngle, posture[2] / rotateAngle },
+                     URMath.InvQuatnum(initialQ));
+                Quatnum rotateQ = URMath.AxisAngle2Quatnum(new double[] { rotateAxisAtBase[0] * rotateAngle, rotateAxisAtBase[1] * rotateAngle, rotateAxisAtBase[2] * rotateAngle });
+                double[] aimAttitude = URMath.Quatnum2AxisAngle(
+                    URMath.QuatnumRotate(new Quatnum[] { initialQ, rotateQ }));
+
+                // 4. 检测目标姿态是否过限
+                double[] aimZDirection =
+                    URMath.FindDirectionToSecondReferenceFromFirstReference(
+                        new double[] { 0.0, 0.0, 1.0 },
+                        URMath.AxisAngle2Quatnum(aimAttitude));
+                if (URMath.VectorDotMultiply(
+                    aimZDirection, new double[] { 0.0, 0.0, 1.0 }) > 0)
+                {
+                    double aimAttitudeAngle = URMath.LengthOfArray(aimAttitude);
+                    double[] aimAttitudeAxis = new double[] {
+                        aimAttitude[0] / aimAttitudeAngle, 
+                        aimAttitude[1] / aimAttitudeAngle, 
+                        aimAttitude[2] / aimAttitudeAngle};
+
+                    double newSin = 0.0;
+                    if (Math.Pow(aimAttitudeAxis[2], 2) > 0.5)
+                        newSin = 1.0;
+                    else
+                        newSin = Math.Sqrt(0.5 / (1 - Math.Pow(aimAttitudeAxis[2], 2)));
+                    if (Math.Abs(newSin) > 1.0) newSin = Math.Sign(newSin) * 1.0;
+                    double newAngle = 2.0 * Math.Asin(newSin);
+                    if (newAngle == System.Double.NaN) newAngle = Math.Sign(newSin) * Math.PI;
+                    aimAttitude[0] = aimAttitudeAxis[0] * newAngle;
+                    aimAttitude[1] = aimAttitudeAxis[1] * newAngle;
+                    aimAttitude[2] = aimAttitudeAxis[2] * newAngle;
+                }
+
+                // 5. 将参数输入模块
+                // 输入模块的参数为：
+                // 相对起始扫描点的两维坐标，
+                // 相对基座原点的姿态，
+                // 接触压力
+                internalProcessor.servoTrackTranslationModule.ServoMotionRefreshRefValues(
+                    nextFlag, new double?[] { 
+                        posEnable ? new double?(xDist) : null, 
+                        posEnable ? new double?(yDist) : null, 
+                        attEnable ? new double?(aimAttitude[0]) : null, 
+                        attEnable ? new double?(aimAttitude[1]) : null, 
+                        attEnable ? new double?(aimAttitude[2]) : null, 
+                        fosTrackEnable ? force : detectingBasicPreservedForce});
+
+                // 6. 力保持使能更改
+                internalProcessor.servoTrackTranslationModule.ServoMotionForceTrackEnable = fosKeepEnable;
+            }
         }
 
+        /// <summary>
+        /// 在模块工作中更新部分控制参数
+        /// </summary>
+        /// <param name="dataList">部分控制参数列表</param>
+        public void RefreshPartParameters(List<string> dataList)
+        {
+            if (workingStatus != WorkStatus.WorkRunning) return;
+
+            double posFactor = double.Parse(dataList[0]);
+            double attFactor = double.Parse(dataList[1]);
+            double fosFactor = double.Parse(dataList[2]);
+            bool posEnable = bool.Parse(dataList[3]);
+            bool attEnable = bool.Parse(dataList[4]);
+            bool fosKeepEnable = bool.Parse(dataList[5]);
+            bool fosTrackEnable = bool.Parse(dataList[6]);
+
+            lock (controlParamLocker)
+            {
+                positionOverride = posFactor;
+                angleOverride = attFactor;
+                forceOverride = fosFactor;
+
+                ifEnableTranslationTrack = posEnable;
+                ifEnableAttitudeTrack = attEnable;
+                ifEnableForceKeep = fosKeepEnable;
+                ifEnableForceTrack = fosTrackEnable;
+            }
+
+            Task.Run(new Action(() =>
+            {
+                Dictionary<string, string[]> parametersDictionary = xmlProcessor.ReadXml();
+                parametersDictionary.ElementAt(4).Value[0] = dataList[5];
+                parametersDictionary.ElementAt(5).Value[0] = dataList[6];
+                parametersDictionary.ElementAt(12).Value[0] = dataList[0];
+                parametersDictionary.ElementAt(13).Value[0] = dataList[1];
+                parametersDictionary.ElementAt(14).Value[0] = dataList[2];
+                parametersDictionary.ElementAt(15).Value[0] = dataList[4];
+                parametersDictionary.ElementAt(16).Value[0] = dataList[3];
+
+                xmlProcessor.SaveXML(parametersDictionary);
+            }));
+        }
+
+
+
+
+
+
         #endregion
-
-
-
-
     }
 }

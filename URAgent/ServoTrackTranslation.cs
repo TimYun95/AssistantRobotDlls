@@ -28,14 +28,11 @@ namespace URServo
         protected double servoMotionMinAvailableForce = 0.0; // 力轴可接受的最小力值
 
         private static readonly object refLocker = new object(); // 参考值锁
-        protected int servoMotionRefFlag = 1; // 参考标号
+        private static readonly object enableLocker = new object(); // 使能值锁
+        protected int servoMotionRefFlag = 0; // 参考标号
         protected double[] servoMotionRefPos = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }; // 参考位置
 
         protected List<double[]> servoMotionRecordDatas = new List<double[]>(30000); // 运动过程数据记录（每4分钟一次记录）
-
-        protected double[] servoMotionToolXYCoordinates = new double[2] { 0.0, 0.0 }; // 伺服运动模式工具下XY平面坐标(历史累计值)
-        protected int[] servoMotionLastRefDistDirection = new int[2] { 0, 0 }; // 伺服运动模式工具下上周期参考移动距离方向
-        protected double[] servoMotionLastTCPPositions = new double[6] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }; // 伺服运动模式上周期工具末端坐标
         #endregion
 
         #region 属性
@@ -54,6 +51,21 @@ namespace URServo
         {
             get { return (double)ServoMotionModuleFlag.TrackTranslation; }
         }
+
+        /// <summary>
+        /// 力轴跟随开关
+        /// </summary>
+        public bool ServoMotionForceTrackEnable
+        {
+            set
+            {
+                lock (enableLocker)
+                {
+                    servoMotionForceTrackEnable = value;
+                }
+            }
+        }
+
         #endregion
 
         #region 方法
@@ -110,14 +122,6 @@ namespace URServo
             servoMotionPreservedForce[1] = 0.0;
             servoMotionPreservedForce[2] = 0.0;
 
-            // 初始化位置寄存器
-            servoMotionToolXYCoordinates[0] = 0.0;
-            servoMotionToolXYCoordinates[1] = 0.0;
-
-            // 初始化移动方向寄存器
-            servoMotionLastRefDistDirection[0] = 0;
-            servoMotionLastRefDistDirection[1] = 0;
-
             // 设置伺服参数并重写下位机控制程序
             SetServoMotionParameters(ControlPeriod, LookAheadTime, Gain);
             internalProcessor.WriteStringToControlCode(ControlPeriod, LookAheadTime, Gain);
@@ -157,7 +161,13 @@ namespace URServo
                     servoMotionRecordDatas.Clear();
 
                     servoMotionBeginTcpPosition = (double[])tcpRealPosition.Clone();
-                    servoMotionLastTCPPositions = (double[])tcpRealPosition.Clone();
+                    servoMotionRefFlag = 0;
+                    servoMotionRefPos[0] = 0.0;
+                    servoMotionRefPos[1] = 0.0;
+                    servoMotionRefPos[2] = servoMotionBeginTcpPosition[3];
+                    servoMotionRefPos[3] = servoMotionBeginTcpPosition[4];
+                    servoMotionRefPos[4] = servoMotionBeginTcpPosition[5];
+
                     if (ifPort30004Used)
                     {
                         internalProcessor.SendURServorInputDatas(servoMotionBeginTcpPosition);
@@ -186,6 +196,8 @@ namespace URServo
                     servoMotionPreservedForce[0] /= servoMotionInitialRound;
                     servoMotionPreservedForce[1] /= servoMotionInitialRound;
                     servoMotionPreservedForce[2] /= servoMotionInitialRound;
+
+                    servoMotionRefPos[5] = servoMotionPreservedForce[2];
 
                     servoMotionRecordDatas.Add(ServoMotionOutputConfiguration());
 
@@ -225,17 +237,17 @@ namespace URServo
         /// </summary>
         /// <param name="flag">运动标号</param>
         /// <param name="values">运动参考值</param>
-        public void ServoMotionRefreshRefValues(int flag, double[] values)
+        public void ServoMotionRefreshRefValues(int flag, double?[] values)
         {
             lock (refLocker)
             {
                 servoMotionRefFlag = flag;
-                servoMotionRefPos[0] = values[0];
-                servoMotionRefPos[1] = values[1];
-                servoMotionRefPos[2] = values[2];
-                servoMotionRefPos[3] = values[3];
-                servoMotionRefPos[4] = values[4];
-                servoMotionRefPos[5] = values[5];
+                if (values[0].HasValue) servoMotionRefPos[0] = values[0].Value;
+                if (values[1].HasValue) servoMotionRefPos[1] = values[1].Value;
+                if (values[2].HasValue) servoMotionRefPos[2] = values[2].Value;
+                if (values[3].HasValue) servoMotionRefPos[3] = values[3].Value;
+                if (values[4].HasValue) servoMotionRefPos[4] = values[4].Value;
+                if (values[5].HasValue) servoMotionRefPos[5] = values[5].Value;
             }
         }
 
@@ -303,56 +315,54 @@ namespace URServo
 
             // 位移变化
             double[] currentPosition = new double[] { tcpRealPosition[0], tcpRealPosition[1], tcpRealPosition[2] };
-            double[] refDeltaDist = new double[] { refDist[0] - servoMotionToolXYCoordinates[0], refDist[1] - servoMotionToolXYCoordinates[1] };
-            if (Math.Max(Math.Abs(refDeltaDist[0]), Math.Abs(refDeltaDist[1])) > servoMotionMaxDistanceIncrement)
+            double[] initialPosition = new double[] { servoMotionBeginTcpPosition[0], servoMotionBeginTcpPosition[1], servoMotionBeginTcpPosition[2] };
+            double[] initialPosture = new double[] { servoMotionBeginTcpPosition[3], servoMotionBeginTcpPosition[4], servoMotionBeginTcpPosition[5] };
+            double[] aimPointAtPlane = new double[] {
+                initialPosition[0] + servoMotionToolDirectionXAtBase[0] * refDist[0] + servoMotionToolDirectionYAtBase[0] * refDist[1], 
+                initialPosition[1] + servoMotionToolDirectionXAtBase[1] * refDist[0] + servoMotionToolDirectionYAtBase[1] * refDist[1], 
+                initialPosition[2] + servoMotionToolDirectionXAtBase[2] * refDist[0] + servoMotionToolDirectionYAtBase[2] * refDist[1] };
+            double[] currentZAxisAtBase = internalProcessor.ZDirectionOfTcpAtBaseReference(tcpRealPosition);
+
+            double enlongedCoeff =
+                (currentZAxisAtBase[0] * (currentPosition[0] - aimPointAtPlane[0]) +
+                 currentZAxisAtBase[1] * (currentPosition[1] - aimPointAtPlane[1]) +
+                 currentZAxisAtBase[2] * (currentPosition[2] - aimPointAtPlane[2])) /
+                (currentZAxisAtBase[0] * servoMotionToolDirectionZAtBase[0] +
+                 currentZAxisAtBase[1] * servoMotionToolDirectionZAtBase[1] +
+                 currentZAxisAtBase[2] * servoMotionToolDirectionZAtBase[2]);
+            double[] aimPointAtSurf = new double[] {
+                aimPointAtPlane[0] + enlongedCoeff * servoMotionToolDirectionZAtBase[0], 
+                aimPointAtPlane[1] + enlongedCoeff * servoMotionToolDirectionZAtBase[1], 
+                aimPointAtPlane[2] + enlongedCoeff * servoMotionToolDirectionZAtBase[2] };
+
+            double[] refDelta = new double[] { 
+                aimPointAtSurf[0] - currentPosition[0], 
+                aimPointAtSurf[1] - currentPosition[1],
+                aimPointAtSurf[2] - currentPosition[2]};
+            double refDeltaDistance = URMath.LengthOfArray(refDelta);
+            double[] refDeltaDirection = new double[] {
+                refDelta[0] / refDeltaDistance,
+                refDelta[1] / refDeltaDistance,
+                refDelta[2] / refDeltaDistance };
+            if (refDeltaDistance > servoMotionMaxDistanceIncrement)
             {
-                if (Math.Abs(refDeltaDist[0]) > Math.Abs(refDeltaDist[1]))
-                {
-                    refDeltaDist[1] = servoMotionMaxDistanceIncrement / Math.Abs(refDeltaDist[0]) * refDeltaDist[1];
-                    refDeltaDist[0] = servoMotionMaxDistanceIncrement;
-                }
-                else
-                {
-                    refDeltaDist[0] = servoMotionMaxDistanceIncrement / Math.Abs(refDeltaDist[1]) * refDeltaDist[0];
-                    refDeltaDist[1] = servoMotionMaxDistanceIncrement;
-                }
+                aimPointAtSurf[0] = currentPosition[0] + servoMotionMaxDistanceIncrement * refDeltaDirection[0];
+                aimPointAtSurf[1] = currentPosition[1] + servoMotionMaxDistanceIncrement * refDeltaDirection[1];
+                aimPointAtSurf[2] = currentPosition[2] + servoMotionMaxDistanceIncrement * refDeltaDirection[2];
             }
 
-            double[] xDirection = internalProcessor.XDirectionOfTcpAtBaseReference(tcpRealPosition);
-            double[] yDirection = internalProcessor.YDirectionOfTcpAtBaseReference(tcpRealPosition);
-
-            nextTcpPosition[0] += (xDirection[0] * refDeltaDist[0] + yDirection[0] * refDeltaDist[1]);
-            nextTcpPosition[1] += (xDirection[1] * refDeltaDist[0] + yDirection[1] * refDeltaDist[1]);
-            nextTcpPosition[2] += (xDirection[2] * refDeltaDist[0] + yDirection[2] * refDeltaDist[1]);
-
-            // 更新累计移动距离
-            double[] xDirectionLast = internalProcessor.XDirectionOfTcpAtBaseReference(servoMotionLastTCPPositions);
-            double[] yDirectionLast = internalProcessor.YDirectionOfTcpAtBaseReference(servoMotionLastTCPPositions);
-            double[] runDistance = new double[] { tcpRealPosition[0] - servoMotionLastTCPPositions[0], 
-                                                                          tcpRealPosition[1] - servoMotionLastTCPPositions[1],
-                                                                          tcpRealPosition[2] - servoMotionLastTCPPositions[2] };
-            double runDistanceAtLastX = URMath.VectorDotMultiply(runDistance, xDirectionLast);
-            double runDistanceAtLastY = URMath.VectorDotMultiply(runDistance, yDirectionLast);
-            if (Math.Sign(runDistanceAtLastX * servoMotionLastRefDistDirection[0]) <= 0) runDistanceAtLastX = 0.0;
-            if (Math.Sign(runDistanceAtLastY * servoMotionLastRefDistDirection[1]) <= 0) runDistanceAtLastY = 0.0;
-            servoMotionToolXYCoordinates[0] += runDistanceAtLastX;
-            servoMotionToolXYCoordinates[1] += runDistanceAtLastY;
-            
-            // 更新移动方向
-            servoMotionLastRefDistDirection[0] = Math.Sign(refDeltaDist[0]);
-            servoMotionLastRefDistDirection[1] = Math.Sign(refDeltaDist[1]);
-
-            // 更新上次TCP坐标
-            servoMotionLastTCPPositions[0] = tcpRealPosition[0];
-            servoMotionLastTCPPositions[1] = tcpRealPosition[1];
-            servoMotionLastTCPPositions[2] = tcpRealPosition[2];
-            servoMotionLastTCPPositions[3] = tcpRealPosition[3];
-            servoMotionLastTCPPositions[4] = tcpRealPosition[4];
-            servoMotionLastTCPPositions[5] = tcpRealPosition[5];
+            nextTcpPosition[0] = aimPointAtSurf[0];
+            nextTcpPosition[1] = aimPointAtSurf[1];
+            nextTcpPosition[2] = aimPointAtSurf[2];
 
             // 力变化
             double forceDirectionZIncrement = 0.0;
-            if (servoMotionForceTrackEnable)
+            bool ifContinueForceTrack;
+            lock (enableLocker)
+            {
+                ifContinueForceTrack = servoMotionForceTrackEnable;
+            }
+            if (ifContinueForceTrack)
             {
                 double differenceForceZ = referenceForce[2] - (-refForce);
                 if (Math.Abs(differenceForceZ) <= servoMotionMinAvailableForce)
@@ -368,10 +378,9 @@ namespace URServo
                     forceDirectionZIncrement = Math.Sign(differenceForceZ) * ((Math.Abs(differenceForceZ) - servoMotionMinAvailableForce) / (servoMotionMaxAvailableForce - servoMotionMinAvailableForce) * (servoMotionMaxIncrement - servoMotionMinIncrement) + servoMotionMinIncrement);
                 }
 
-                double[] zDirection = internalProcessor.ZDirectionOfTcpAtBaseReference(tcpRealPosition);
-                nextTcpPosition[0] += (zDirection[0] * forceDirectionZIncrement);
-                nextTcpPosition[1] += (zDirection[1] * forceDirectionZIncrement);
-                nextTcpPosition[2] += (zDirection[2] * forceDirectionZIncrement);
+                nextTcpPosition[0] += (currentZAxisAtBase[0] * forceDirectionZIncrement);
+                nextTcpPosition[1] += (currentZAxisAtBase[1] * forceDirectionZIncrement);
+                nextTcpPosition[2] += (currentZAxisAtBase[2] * forceDirectionZIncrement);
             }
 
             // 记录数据
@@ -409,6 +418,11 @@ namespace URServo
         /// <returns>配置参数输出</returns>
         protected override double[] ServoMotionOutputConfiguration()
         {
+            bool ifContinueForceTrack;
+            lock (enableLocker)
+            {
+                ifContinueForceTrack = servoMotionForceTrackEnable;
+            }
             return new double[]{ ServoMotionFlag,
                                               servoMotionPreservedForce[0],
                                               servoMotionPreservedForce[1],
@@ -416,7 +430,7 @@ namespace URServo
                                               servoMotionStopDistance,
                                               servoMotionMaxDistanceIncrement,
                                               servoMotionMaxAngleIncrement,
-                                              servoMotionForceTrackEnable ? 1.0 : 0.0,
+                                              ifContinueForceTrack ? 1.0 : 0.0,
                                               servoMotionMinIncrement, 
                                               servoMotionMaxIncrement, 
                                               servoMotionMinAvailableForce, 

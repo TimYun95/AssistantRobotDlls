@@ -455,9 +455,20 @@ namespace MathFunction
         /// </summary>
         /// <param name="InputDatas">输入数据</param>
         /// <param name="DecimalNum">输入数据保留位数</param>
+        /// <param name="ifAvg">是否直接求均值</param>
         /// <returns>返回高斯均值</returns>
-        public static double GaussAverage(double[] InputDatas, int DecimalNum)
+        public static double GaussAverage(double[] InputDatas, int DecimalNum, bool ifAvg = false)
         {
+            if (ifAvg)
+            {
+                double average = 0;
+                foreach (double item in InputDatas)
+                {
+                    average += item;
+                }
+                return average / (double)InputDatas.Length;
+            }
+
             double[] Datas = new double[InputDatas.Length];
             double decimalNum = Math.Pow(10, (double)DecimalNum);
             for (int i = 0; i < Datas.Length; ++i)
