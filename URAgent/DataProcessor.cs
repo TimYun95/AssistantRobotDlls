@@ -1500,7 +1500,7 @@ namespace URCommunication
                         double[] toolYAxis = YDirectionOfTcpAtBaseReference(ToolPosition);
                         double angleWithXAxis = (Math.Abs(toolYAxis[2]) > 1.0) ? Math.Asin((double)Math.Sign(toolYAxis[2])) : Math.Asin(toolYAxis[2]);
                         if (!commandSender.IfHanged) angleWithXAxis = -angleWithXAxis;
-                        
+
                         int halfNum = (ModifiedParameter.GetLength(1) - 1) / 2;
                         double step = maxAngleRange / (double)halfNum;
 
@@ -1594,16 +1594,82 @@ namespace URCommunication
                     }
                 case ForceModifiedMode.ProbeWhole:
                     {
+                        double[] signalBias = new double[6];
 
+                        double[] toolZAxis = ZDirectionOfTcpAtBaseReference(ToolPosition);
+                        double angleToZAxis = (Math.Abs(toolZAxis[2]) > 1.0) ? Math.Acos((double)Math.Sign(toolZAxis[2])) : Math.Acos(toolZAxis[2]);
+                        angleToZAxis = Math.PI - angleToZAxis; // 机械臂正装
 
+                        if (angleToZAxis < 2.0 / 180.0 * Math.PI)
+                        {
+                            signalBias[0] = 0.0; signalBias[1] = 0.0; signalBias[2] = 0.0;
+                            signalBias[3] = 0.0; signalBias[4] = 0.0; signalBias[5] = 0.0;
 
+                            double[] noGravityForce = new double[6];
+                            for (int i = 0; i < 6; i++) noGravityForce[i] = OriginalForce[i] - signalBias[i];
+                            return (double[])noGravityForce.Clone();
+                        }
 
+                        double[] toolZAxisProjOnXYDirection = new double[2]
+                        { toolZAxis[0] / Math.Sqrt(Math.Pow(toolZAxis[0], 2.0) + Math.Pow(toolZAxis[1], 2.0)),
+                          toolZAxis[1] / Math.Sqrt(Math.Pow(toolZAxis[0], 2.0) + Math.Pow(toolZAxis[1], 2.0)) };
 
-                        double[] noGravityForce = new double[6];
+                        double angleRotateAroundZAxis =
+                            URMath.VectorDotMultiply(new double[] { toolZAxisProjOnXYDirection[0], toolZAxisProjOnXYDirection[1], 0.0 },
+                                                                         new double[] { 1.0 / Math.Sqrt(2.0), -1.0 / Math.Sqrt(2.0), 0.0 });
+                        angleRotateAroundZAxis = (Math.Abs(angleRotateAroundZAxis) > 1.0) ? Math.Acos((double)Math.Sign(angleRotateAroundZAxis)) : Math.Acos(angleRotateAroundZAxis);
+                        if (toolZAxisProjOnXYDirection[1] > -toolZAxisProjOnXYDirection[0]) angleRotateAroundZAxis = -angleRotateAroundZAxis;
 
+                        double[] toolXAxis = XDirectionOfTcpAtBaseReference(ToolPosition);
+                        double[] toolXAxisRregistered = URMath.Quatnum2Array(
+                            URMath.RotateAlongAxis(
+                                URMath.AxisAngle2Quatnum(new double[] { 0.0, 0.0, angleRotateAroundZAxis }),
+                                URMath.Array2Quatnum(toolXAxis)));
 
+                        double[] toolXAxisReference = URMath.Quatnum2Array(
+                            URMath.RotateAlongAxis(
+                                URMath.AxisAngle2Quatnum(new double[] { -angleToZAxis / Math.Sqrt(2.0), -angleToZAxis / Math.Sqrt(2.0), 0.0 }),
+                                URMath.Array2Quatnum(new double[] { -1.0 / Math.Sqrt(2.0), 1.0 / Math.Sqrt(2.0), 0.0 })));
+                        double[] toolYAxisReference = URMath.Quatnum2Array(
+                            URMath.RotateAlongAxis(
+                                URMath.AxisAngle2Quatnum(new double[] { -angleToZAxis / Math.Sqrt(2.0), -angleToZAxis / Math.Sqrt(2.0), 0.0 }),
+                                URMath.Array2Quatnum(new double[] { 1.0 / Math.Sqrt(2.0), 1.0 / Math.Sqrt(2.0), 0.0 })));
 
-                        return (double[])noGravityForce.Clone();
+                        double[] toolXAxisProj = new double[] {
+                            URMath.VectorDotMultiply(toolXAxisRregistered, toolXAxisReference),
+                            URMath.VectorDotMultiply(toolXAxisRregistered, toolYAxisReference) };
+                        double angleAtXY = (Math.Abs(toolXAxisProj[0]) > 1.0) ? Math.Acos((double)Math.Sign(toolXAxisProj[0])) : Math.Acos(toolXAxisProj[0]);
+                        if (toolXAxisProj[1] < 0.0) angleAtXY = Math.PI * 2.0 - angleAtXY;
+
+                        double zColumnEign = angleToZAxis / (2.0 / 180.0 * Math.PI);
+                        int zColumnLowerNum = Convert.ToInt32(Math.Floor(zColumnEign));
+                        if (zColumnLowerNum < 1) zColumnLowerNum = 1;
+                        if (zColumnLowerNum >= 45) zColumnLowerNum = 44;
+                        int zColumnUpperNum = zColumnLowerNum + 1;
+                        if (angleToZAxis > Math.PI * 0.5) angleToZAxis = Math.PI * 0.5;
+                        double zLowFactor = (zColumnUpperNum * (2.0 / 180.0 * Math.PI) - angleToZAxis) / (2.0 / 180.0 * Math.PI);
+                        zColumnLowerNum -=1; zColumnUpperNum-=1;
+
+                        double xyColumnEign = angleAtXY / (2.0 / 180.0 * Math.PI);
+                        int xyColumnLowerNum = Convert.ToInt32(Math.Floor(xyColumnEign));
+                        if (xyColumnLowerNum < 0) xyColumnLowerNum = 0;
+                        if (xyColumnLowerNum >= 179) xyColumnLowerNum = 179;
+                        int xyColumnUpperNum = xyColumnLowerNum == 179 ? 0 : xyColumnLowerNum + 1;
+                        if (angleAtXY > Math.PI * 2.0) angleAtXY = Math.PI * 2.0;
+                        double xyLowFactor = xyColumnLowerNum == 179 ?
+                            (2.0 * Math.PI - angleAtXY) / (2.0 / 180.0 * Math.PI) : (xyColumnUpperNum * (2.0 / 180.0 * Math.PI) - angleAtXY) / (2.0 / 180.0 * Math.PI);
+
+                        double[] noGravityForceOverZeroArea = new double[6];
+                        for (int i = 0; i < 6; i++)
+                        {
+                            signalBias[i] =
+                                (ModifiedParameter[i, zColumnLowerNum * 180 + xyColumnLowerNum] * xyLowFactor +
+                                ModifiedParameter[i, zColumnLowerNum * 180 + xyColumnUpperNum] * (1.0 - xyLowFactor)) * zLowFactor +
+                                (ModifiedParameter[i, zColumnUpperNum * 180 + xyColumnLowerNum] * xyLowFactor +
+                                ModifiedParameter[i, zColumnUpperNum * 180 + xyColumnUpperNum] * (1.0 - xyLowFactor)) * (1 - zLowFactor);
+                            noGravityForceOverZeroArea[i] = OriginalForce[i] - signalBias[i];
+                        }
+                        return (double[])noGravityForceOverZeroArea.Clone();
                     }
                 default:
                     {
@@ -1725,7 +1791,7 @@ namespace URCommunication
                 if (!IsZeroed)
                 {
                     // 先移动到初始位置
-                    SendURCommanderMoveJ(InitialPosition, 0.5, 0.4);
+                    SendURCommanderMoveJ(InitialPosition, 0.4, 0.1);
                     Thread.Sleep(800);
                     while (ProgramState == 2.0)
                     {
@@ -1748,6 +1814,22 @@ namespace URCommunication
                 }
                 OnSendPreciseCalibrationProcess((short)1);
 
+
+                // 先移动到初始位置
+                SendURCommanderMoveJ(InitialPosition, 0.2, 0.1);
+                Thread.Sleep(800);
+                while (ProgramState == 2.0)
+                {
+                    Thread.Sleep(200);
+                }
+
+                // 等待机械臂稳定
+                Thread.Sleep(1000);
+
+                // 重置力传感器
+                SetOPTOBias(true);
+                Thread.Sleep(800 + 2000);
+
                 double Step = HalfRange / (double)HalfTestNum;
                 for (int k = 0; k < HalfTestNum; k++)
                 {
@@ -1756,18 +1838,18 @@ namespace URCommunication
                     {
                         case 'x':
                         case 'X':
-                            SendURCommanderMoveL(RotateByTcpXAxis(-(k + 1) * Step, zeroedPosition), 0.1, 0.03);
+                            SendURCommanderMoveL(RotateByTcpXAxis(-(k + 1) * Step, zeroedPosition), 0.02, 0.004);
                             break;
                         case 'y':
                         case 'Y':
-                            SendURCommanderMoveL(RotateByTcpYAxis(-(k + 1) * Step, zeroedPosition), 0.1, 0.03);
+                            SendURCommanderMoveL(RotateByTcpYAxis(-(k + 1) * Step, zeroedPosition), 0.02, 0.004);
                             break;
                         case 'z':
                         case 'Z':
-                            SendURCommanderMoveL(RotateByTcpZAxis(-(k + 1) * Step, zeroedPosition), 0.1, 0.03);
+                            SendURCommanderMoveL(RotateByTcpZAxis(-(k + 1) * Step, zeroedPosition), 0.02, 0.004);
                             break;
                         default:
-                            SendURCommanderMoveL(zeroedPosition, 0.1, 0.03);
+                            SendURCommanderMoveL(zeroedPosition, 0.02, 0.004);
                             break;
                     }
 
@@ -1781,7 +1863,7 @@ namespace URCommunication
                     Thread.Sleep(1000);
 
                     // 测试力信号
-                    Thread.Sleep(500);
+                    Thread.Sleep(500 + 1500);
                     double[][] getForces = ContinuousOriginalFlangeForces;
                     int numForces = getForces.Count();
                     double[] fx = new double[numForces];
@@ -1810,13 +1892,20 @@ namespace URCommunication
                     OnSendPreciseCalibrationProcess((short)process);
                 }
 
-                // 回到初始位置
-                SendURCommanderMoveL(zeroedPosition, 0.1, 0.03);
+                // 先移动到初始位置
+                SendURCommanderMoveJ(InitialPosition, 0.2, 0.1);
                 Thread.Sleep(800);
                 while (ProgramState == 2.0)
                 {
                     Thread.Sleep(200);
                 }
+
+                // 等待机械臂稳定
+                Thread.Sleep(1000);
+
+                // 重置力传感器
+                SetOPTOBias(true);
+                Thread.Sleep(800 + 2000);
                 OnSendPreciseCalibrationProcess((short)51);
 
                 for (int k = 0; k < HalfTestNum; k++)
@@ -1826,18 +1915,18 @@ namespace URCommunication
                     {
                         case 'x':
                         case 'X':
-                            SendURCommanderMoveL(RotateByTcpXAxis((k + 1) * Step, zeroedPosition), 0.1, 0.03);
+                            SendURCommanderMoveL(RotateByTcpXAxis((k + 1) * Step, zeroedPosition), 0.02, 0.004);
                             break;
                         case 'y':
                         case 'Y':
-                            SendURCommanderMoveL(RotateByTcpYAxis((k + 1) * Step, zeroedPosition), 0.1, 0.03);
+                            SendURCommanderMoveL(RotateByTcpYAxis((k + 1) * Step, zeroedPosition), 0.02, 0.004);
                             break;
                         case 'z':
                         case 'Z':
-                            SendURCommanderMoveL(RotateByTcpZAxis((k + 1) * Step, zeroedPosition), 0.1, 0.03);
+                            SendURCommanderMoveL(RotateByTcpZAxis((k + 1) * Step, zeroedPosition), 0.02, 0.004);
                             break;
                         default:
-                            SendURCommanderMoveL(zeroedPosition, 0.1, 0.03);
+                            SendURCommanderMoveL(zeroedPosition, 0.02, 0.004);
                             break;
                     }
 
@@ -1851,7 +1940,7 @@ namespace URCommunication
                     Thread.Sleep(1000);
 
                     // 测试力信号
-                    Thread.Sleep(500);
+                    Thread.Sleep(500 + 1500);
                     double[][] getForces = ContinuousOriginalFlangeForces;
                     int numForces = getForces.Count();
                     double[] fx = new double[numForces];
@@ -1881,7 +1970,7 @@ namespace URCommunication
                 }
 
                 // 回到初始位置
-                SendURCommanderMoveL(zeroedPosition, 0.1, 0.03);
+                SendURCommanderMoveL(zeroedPosition, 0.02, 0.004);
                 OnSendPreciseCalibrationDatas((double[,])forceRecord.Clone());
 
                 Thread.Sleep(800);
@@ -2031,7 +2120,7 @@ namespace URCommunication
                 if (!IsZeroed)
                 {
                     // 先移动到初始位置
-                    SendURCommanderMoveJ(InitialPosition, 0.5, 0.4);
+                    SendURCommanderMoveJ(InitialPosition, 0.4, 0.1);
                     Thread.Sleep(800);
                     while (ProgramState == 2.0)
                     {
@@ -2051,7 +2140,7 @@ namespace URCommunication
                 double[] zeroedPosition = PositionsTcpActual;
 
                 // 开始循环采集
-                for (int loop = 1; loop < 16; loop++)
+                for (int loop = 12; loop < 16; loop++)
                 {
                     // 初始化数据容器
                     double[,] forceRecord = new double[6, 360 / 2 * 3];
@@ -2061,8 +2150,40 @@ namespace URCommunication
 
                     for (int subLoop = 1; subLoop < 4; subLoop++)
                     {
+                        // 先移动到初始位置
+                        SendURCommanderMoveJ(InitialPosition, 0.4, 0.1);
+                        Thread.Sleep(800);
+                        while (ProgramState == 2.0)
+                        {
+                            Thread.Sleep(200);
+                        }
+
+                        // 等待机械臂稳定
+                        Thread.Sleep(1000);
+
+                        // 重置力传感器
+                        SetOPTOBias(true);
+                        Thread.Sleep(800 + 2000);
+
                         double yAngle = (3 * (loop - 1) + subLoop) * URMath.Deg2Rad(2);
                         double[] thisLoopstartPos = RotateByTcpYAxis(yAngle, zeroedPosition);
+
+                        // 移动到预备起始测量位置
+                        SendURCommanderMoveJViaL(thisLoopstartPos, 0.4, 0.03);
+                        Thread.Sleep(800);
+                        while (ProgramState == 2.0)
+                        {
+                            Thread.Sleep(50);
+                        }
+
+                        double tempZAngle = -URMath.Deg2Rad(180);
+                        // 移动到起始测量位置
+                        SendURCommanderMoveJViaL(RotateByTcpZAxis(tempZAngle, thisLoopstartPos), 0.4, 0.03);
+                        Thread.Sleep(800);
+                        while (ProgramState == 2.0)
+                        {
+                            Thread.Sleep(200);
+                        }
 
                         for (int num = 0; num < 180; num++)
                         {
@@ -2083,7 +2204,7 @@ namespace URCommunication
                             Thread.Sleep(1000);
 
                             // 测试力信号
-                            Thread.Sleep(500+250);
+                            Thread.Sleep(500 + 1000);
                             double[][] getForces = ContinuousOriginalFlangeForces;
                             int numForces = getForces.Count();
                             double[] fx = new double[numForces];
@@ -2109,17 +2230,17 @@ namespace URCommunication
                             forceRecord[5, (subLoop - 1) * 180 + num] = URMath.GaussAverage(tz, 5, true);
                             #endregion
 
-                            OnSendEntireCalibrationProcess(Convert.ToInt16(Math.Round((3 * (loop - 1) + subLoop - 1) * 2.0 +num * 2.0 / 180)));
+                            OnSendEntireCalibrationProcess(Convert.ToInt16(Math.Round((3 * (loop - 1) + subLoop - 1) * 2.0 + num * 2.0 / 180)));
                         }
 
                         #region 原路返回，防止绕线
                         double[] tempPos = (double[])thisLoopstartPos.Clone();
-                        for (int round = 1; round < 3; round++)
+                        for (int round = 1; round < 2; round++)
                         {
                             double zAngle = URMath.Deg2Rad(180) - URMath.Deg2Rad(120) * round;
                             double[] thisLoopPos = RotateByTcpZAxis(zAngle, thisLoopstartPos);
 
-                            SendURCommanderMoveJViaL(thisLoopPos, 0.4, 0.3);
+                            SendURCommanderMoveJViaL(thisLoopPos, 0.4, 0.1);
 
                             Thread.Sleep(800);
                             while (ProgramState == 2.0)
@@ -2135,7 +2256,7 @@ namespace URCommunication
                 }
 
                 // 回到初始位置
-                SendURCommanderMoveJ(InitialPosition, 0.5, 0.4);
+                SendURCommanderMoveJ(InitialPosition, 0.4, 0.1);
                 Thread.Sleep(800);
                 while (ProgramState == 2.0)
                 {

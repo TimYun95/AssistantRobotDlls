@@ -228,7 +228,7 @@ namespace SensorAgent
                 isInsideTimer = false;
                 return;
             }
-
+             
             count = 0;
             if (count > 10)
             {

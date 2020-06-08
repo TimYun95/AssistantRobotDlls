@@ -457,7 +457,7 @@ namespace MathFunction
         /// <param name="DecimalNum">输入数据保留位数</param>
         /// <param name="ifAvg">是否直接求均值</param>
         /// <returns>返回高斯均值</returns>
-        public static double GaussAverage(double[] InputDatas, int DecimalNum, bool ifAvg = false)
+        public static double GaussAverage(double[] InputDatas, int DecimalNum, bool ifAvg = true)
         {
             if (ifAvg)
             {

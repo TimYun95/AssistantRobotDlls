@@ -405,40 +405,107 @@ namespace SQLServerConnection
         /// 查询相应工具的工具力信息
         /// </summary>
         /// <param name="ToolNumber">工具号</param>
+        /// <param name="ifWhole">是否返回完整信息</param>
         /// <returns>返回工具力信息，-1无效</returns>
-        public virtual double[,] SearchToolForceInformation(int ToolNumber)
+        public virtual double[,] SearchToolForceInformation(int ToolNumber, bool ifWhole = false)
         {
-            object[] getObject = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceX WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
-            if (getObject.Length < 1) // 没有工具号对应的力信息
+            if (ifWhole)
             {
-                return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
+                object[] getObject = SendWithReplyCommandToDataBase("SELECT * FROM dbo.EntireFlangeForce0001To0540 WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'0\'");
+                if (getObject.Length < 1) // 没有工具号对应的力信息
+                {
+                    return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
+                }
+
+                double[,] forceInformation = new double[6, 180 * 3 * 15];
+                for (int i = 1; i < 16; i++)
+                {
+                    string tableName = "";
+                    switch (i)
+                    {
+                        case 1: tableName = "dbo.EntireFlangeForce0001To0540"; break;
+                        case 2: tableName = "dbo.EntireFlangeForce0541To1080"; break;
+                        case 3: tableName = "dbo.EntireFlangeForce1081To1620"; break;
+                        case 4: tableName = "dbo.EntireFlangeForce1621To2160"; break;
+                        case 5: tableName = "dbo.EntireFlangeForce2161To2700"; break;
+                        case 6: tableName = "dbo.EntireFlangeForce2701To3240"; break;
+                        case 7: tableName = "dbo.EntireFlangeForce3241To3780"; break;
+                        case 8: tableName = "dbo.EntireFlangeForce3781To4320"; break;
+                        case 9: tableName = "dbo.EntireFlangeForce4321To4860"; break;
+                        case 10: tableName = "dbo.EntireFlangeForce4861To5400"; break;
+                        case 11: tableName = "dbo.EntireFlangeForce5401To5940"; break;
+                        case 12: tableName = "dbo.EntireFlangeForce5941To6480"; break;
+                        case 13: tableName = "dbo.EntireFlangeForce6481To7020"; break;
+                        case 14: tableName = "dbo.EntireFlangeForce7021To7560"; break;
+                        case 15: tableName = "dbo.EntireFlangeForce7561To8100"; break;
+                        default:
+                            return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
+                    }
+
+                    object[] recievedFx = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'0\'");
+                    object[] recievedFy = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'1\'");
+                    object[] recievedFz = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'2\'");
+                    object[] recievedTx = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'3\'");
+                    object[] recievedTy = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'4\'");
+                    object[] recievedTz = SendWithReplyCommandToDataBase("SELECT * FROM " + tableName + " WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\' AND Axis=\'5\'");
+
+                    if (recievedFx.Length < 1 || recievedFy.Length < 1 || recievedFz.Length < 1 || recievedTx.Length < 1 || recievedTy.Length < 1 || recievedTz.Length < 1)
+                    {
+                        return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
+                    }
+
+                    for (int j = 0; j < 180 * 3; j++)
+                    {
+                        forceInformation[0, 180 * 3 * (i - 1) + j] = double.Parse(((decimal)recievedFx[j + 3]).ToString());
+                        forceInformation[1, 180 * 3 * (i - 1) + j] = double.Parse(((decimal)recievedFy[j + 3]).ToString());
+                        forceInformation[2, 180 * 3 * (i - 1) + j] = double.Parse(((decimal)recievedFz[j + 3]).ToString());
+                        forceInformation[3, 180 * 3 * (i - 1) + j] = double.Parse(((decimal)recievedTx[j + 3]).ToString());
+                        forceInformation[4, 180 * 3 * (i - 1) + j] = double.Parse(((decimal)recievedTy[j + 3]).ToString());
+                        forceInformation[5, 180 * 3 * (i - 1) + j] = double.Parse(((decimal)recievedTz[j + 3]).ToString());
+                    }
+                }
+
+                return forceInformation;
+            }
+            else
+            {
+                object[] getObject = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceX WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+                if (getObject.Length < 1) // 没有工具号对应的力信息
+                {
+                    return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
+                }
+
+                object[] recievedFx = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceX WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+                object[] recievedFy = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceY WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+                object[] recievedFz = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceZ WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+                object[] recievedTx = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueX WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+                object[] recievedTy = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueY WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+                object[] recievedTz = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueZ WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
+
+                if (recievedFx.Length < 1 || recievedFy.Length < 1 || recievedFz.Length < 1 || recievedTx.Length < 1 || recievedTy.Length < 1 || recievedTz.Length < 1)
+                {
+                    return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
+                }
+
+                double[,] forceInformation = new double[6, recievedFx.Length - 2];
+
+                for (int i = 0; i < recievedFx.Length - 2; i++)
+                {
+                    forceInformation[0, i] = double.Parse(((decimal)recievedFx[i + 2]).ToString());
+                    forceInformation[1, i] = double.Parse(((decimal)recievedFy[i + 2]).ToString());
+                    forceInformation[2, i] = double.Parse(((decimal)recievedFz[i + 2]).ToString());
+                    forceInformation[3, i] = double.Parse(((decimal)recievedTx[i + 2]).ToString());
+                    forceInformation[4, i] = double.Parse(((decimal)recievedTy[i + 2]).ToString());
+                    forceInformation[5, i] = double.Parse(((decimal)recievedTz[i + 2]).ToString());
+                }
+
+                return forceInformation;
             }
 
-            object[] recievedFx = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceX WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
-            object[] recievedFy = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceY WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
-            object[] recievedFz = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeForceZ WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
-            object[] recievedTx = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueX WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
-            object[] recievedTy = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueY WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
-            object[] recievedTz = SendWithReplyCommandToDataBase("SELECT * FROM dbo.FlangeTorqueZ WHERE ToolNum=\'" + ToolNumber.ToString("0") + "\'");
 
-            if (recievedFx.Length < 1 || recievedFy.Length < 1 || recievedFz.Length < 1 || recievedTx.Length < 1 || recievedTy.Length < 1 || recievedTz.Length < 1)
-            {
-                return new double[,] { { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 }, { -1.0 } };
-            }
 
-            double[,] forceInformation = new double[6, recievedFx.Length - 2];
 
-            for (int i = 0; i < recievedFx.Length - 2; i++)
-            {
-                forceInformation[0, i] = double.Parse(((decimal)recievedFx[i + 2]).ToString());
-                forceInformation[1, i] = double.Parse(((decimal)recievedFy[i + 2]).ToString());
-                forceInformation[2, i] = double.Parse(((decimal)recievedFz[i + 2]).ToString());
-                forceInformation[3, i] = double.Parse(((decimal)recievedTx[i + 2]).ToString());
-                forceInformation[4, i] = double.Parse(((decimal)recievedTy[i + 2]).ToString());
-                forceInformation[5, i] = double.Parse(((decimal)recievedTz[i + 2]).ToString());
-            }
-
-            return forceInformation;
+           
         }
         #endregion
     }

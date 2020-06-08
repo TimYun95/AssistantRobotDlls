@@ -104,7 +104,7 @@ namespace MathFunction
         /// QRotateAxis * QBaseArray * QRotateAxis ^ (-1) 
         /// </summary>
         /// <param name="QRotateAxis">表示旋转的四元数</param>
-        /// <param name="QBaseArray">带旋转的向量四元数表示</param>
+        /// <param name="QBaseArray">待旋转的向量四元数表示</param>
         /// <returns>返回旋转后得到的向量四元数表示</returns>
         public static Quatnum RotateAlongAxis(Quatnum QRotateAxis, Quatnum QBaseArray)
         {
