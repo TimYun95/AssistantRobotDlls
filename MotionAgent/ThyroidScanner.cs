@@ -599,7 +599,11 @@ namespace URModule
                 Quatnum initialQ = URMath.AxisAngle2Quatnum(
                      new double[] { startTcpPostion[3], startTcpPostion[4], startTcpPostion[5] });
                 double rotateAngle = URMath.LengthOfArray(posture);
-                double[] rotateAxisAtBase =
+                double[] rotateAxisAtBase;
+                if (Math.Abs(rotateAngle) < 0.001)
+                    rotateAxisAtBase = new double[] { 0.0, 0.0, 0.0 };
+                else
+                    rotateAxisAtBase =
                     URMath.FindDirectionToSecondReferenceFromFirstReference
                     (new double[] { posture[0] / rotateAngle, posture[1] / rotateAngle, posture[2] / rotateAngle },
                      URMath.InvQuatnum(initialQ));
