@@ -37,8 +37,8 @@ namespace SensorAgent
         {
             if (!AskDeviceExist()) return null;
             double[] infos = new double[4];
-            infos[0] = 380.0 - GetInfoX() * 380.0 / 0x7fff;
-            infos[1] = 302.0 - GetInfoY() * 302.0 / 0x7fff;
+            infos[1] = 380.0 - GetInfoX() * 380.0 / 0x7fff;
+            infos[0] = 302.0 - GetInfoY() * 302.0 / 0x7fff;
             infos[2] = GetInfoL() * 0.14;
             infos[3] = GetInfoW() * 0.14;
             return infos;

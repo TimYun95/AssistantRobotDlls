@@ -1274,7 +1274,8 @@ namespace URModule
 
                         // 1.6 移动到过渡位置
                         double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
+                        //routeTransitPosition[2] -= detectingStopDistance;
+                        routeTransitPosition[2] += detectingStopDistance; 
                         routeTransitPosition[3] = routeBeginSinkPosition[3];
                         routeTransitPosition[4] = routeBeginSinkPosition[4];
                         routeTransitPosition[5] = routeBeginSinkPosition[5];
@@ -1410,7 +1411,8 @@ namespace URModule
 
                         // 2.6 移动到过渡位置
                         double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
+                        //routeTransitPosition[2] -= detectingStopDistance;
+                        routeTransitPosition[2] += detectingStopDistance;
                         routeTransitPosition[3] = routeBeginSinkPosition[3];
                         routeTransitPosition[4] = routeBeginSinkPosition[4];
                         routeTransitPosition[5] = routeBeginSinkPosition[5];
@@ -1723,7 +1725,8 @@ namespace URModule
 
                         // 1.6 移动到过渡位置
                         double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
+                        //routeTransitPosition[2] -= detectingStopDistance;
+                        routeTransitPosition[2] += detectingStopDistance; 
                         routeTransitPosition[3] = routeBeginSinkPosition[3];
                         routeTransitPosition[4] = routeBeginSinkPosition[4];
                         routeTransitPosition[5] = routeBeginSinkPosition[5];
@@ -1854,7 +1857,8 @@ namespace URModule
 
                         // 2.6 移动到过渡位置
                         double[] routeTransitPosition = internalProcessor.PositionsTcpActual;
-                        routeTransitPosition[2] -= detectingStopDistance;
+                        //routeTransitPosition[2] -= detectingStopDistance;
+                        routeTransitPosition[2] += detectingStopDistance; 
                         routeTransitPosition[3] = routeBeginSinkPosition[3];
                         routeTransitPosition[4] = routeBeginSinkPosition[4];
                         routeTransitPosition[5] = routeBeginSinkPosition[5];

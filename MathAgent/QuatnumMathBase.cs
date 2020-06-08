@@ -144,6 +144,12 @@ namespace MathFunction
                 double angle = Math.Acos(QData[0]); // 返回在0到pi之间
                 double[] axis = { QData[1] / Math.Sin(angle), QData[2] / Math.Sin(angle), QData[3] / Math.Sin(angle) };
                 angle *= 2.0; // 返回在0到2pi之间
+
+                if (angle >= Math.PI)
+                {
+                    angle = -(2.0 * Math.PI - angle);
+                } // 返回在-pi到pi之间
+
                 return new double[] { axis[0] * angle, axis[1] * angle, axis[2] * angle };
             }
         }

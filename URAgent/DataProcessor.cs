@@ -1648,7 +1648,7 @@ namespace URCommunication
                         int zColumnUpperNum = zColumnLowerNum + 1;
                         if (angleToZAxis > Math.PI * 0.5) angleToZAxis = Math.PI * 0.5;
                         double zLowFactor = (zColumnUpperNum * (2.0 / 180.0 * Math.PI) - angleToZAxis) / (2.0 / 180.0 * Math.PI);
-                        zColumnLowerNum -=1; zColumnUpperNum-=1;
+                        zColumnLowerNum -= 1; zColumnUpperNum -= 1;
 
                         double xyColumnEign = angleAtXY / (2.0 / 180.0 * Math.PI);
                         int xyColumnLowerNum = Convert.ToInt32(Math.Floor(xyColumnEign));

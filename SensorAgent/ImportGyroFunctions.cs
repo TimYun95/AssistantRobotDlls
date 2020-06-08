@@ -42,10 +42,10 @@ namespace SensorAgent
             bool refreshResult = RefreshDeviceInfo();
             if (!refreshResult) return null;
             double[] infos = new double[4];
-            infos[0] = GetInfoX() / 10000.0;
-            infos[1] = GetInfoY() / 10000.0;
-            infos[2] = GetInfoZ() / 10000.0;
-            infos[3] = GetInfoW() / 10000.0;
+            infos[0] = GetInfoW() / 10000.0;
+            infos[1] = GetInfoX() / 10000.0;
+            infos[2] = GetInfoY() / 10000.0;
+            infos[3] = GetInfoZ() / 10000.0;
             return infos;
         }
     }
